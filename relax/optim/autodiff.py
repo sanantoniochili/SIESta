@@ -85,8 +85,8 @@ def init(charge_dict, atoms, outdir):
         'Chemical Symbols':chemical_symbols, 
         'Positions':atoms.positions, \
         'Cell':atoms.get_cell(), 
-        'Electrostatic energy':Cpot.get_all_ewald_energies(), 
-        'Interatomic energy':Bpot.get_all_ewald_energies(), \
+        'Electrostatic energy':coulomb_energy, 
+        'Interatomic energy':buckingham_energy, \
         'Total energy':initial_energy})
 
     return potentials, vects, scaled_pos, N

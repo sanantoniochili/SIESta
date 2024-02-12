@@ -102,8 +102,6 @@ class Buckingham(EwaldPotential):
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
             if (pair in self.buck):
                 # Pair of ions is listed in parameters file
-                A = self.buck[pair]['par'][0]
-                rho = self.buck[pair]['par'][1]
                 C = self.buck[pair]['par'][2]
 
                 # Get distance vector
@@ -219,7 +217,7 @@ class Buckingham(EwaldPotential):
     def energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
         real_energy = self.ewald_real_energy(pos, vects)	
         recip_energy = self.ewald_recip_energy(pos, vects, volume)
-        self_energy = self.ewald_self_energy(pos)
+        self_energy = self.ewald_self_energy(pos, len(pos))
 
         energy = torch.add(real_energy, recip_energy)
         energy = torch.add(energy, self_energy)
