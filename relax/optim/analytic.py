@@ -8,10 +8,10 @@ from ase.geometry import wrap_positions, get_distances
 from ase.io import write
 from ase.geometry import cell_to_cellpar, cellpar_to_cell
 
-from ..analytic_potentials.potential import *
-from ..analytic_potentials.coulomb.coulomb import Coulomb
-from ..analytic_potentials.buckingham.buckingham import Buckingham
-from ..finite_differences import finite_diff_grad
+from relax.analytic_potentials.potential import *
+from relax.analytic_potentials.coulomb.coulomb import Coulomb
+from relax.analytic_potentials.buckingham.buckingham import Buckingham
+from relax.finite_differences import finite_diff_grad
 
 import shutil
 COLUMNS = shutil.get_terminal_size().columns
