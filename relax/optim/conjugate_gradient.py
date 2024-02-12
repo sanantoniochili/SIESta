@@ -1,18 +1,14 @@
 import numpy as np
-from ase.geometry import wrap_positions
-from relax.potentials.potential import *
-from relax.linmin import *
-from optimizer import Optimizer
+from relax.optim.linmin import *
+from relax.optim.optimizer import Optimizer
 
 class CG(Optimizer):
 
-	def step(self, grad, max_step, min_step, params, 
-          update_fn, line_search_fn=steady_step, **kwargs):
+	def step(self, grad, gnorm, params, line_search_fn):
 
 		# Calculate direction
 		if self.iterno == 0:
-			self.methods += ['GD']
-			self.direction = -grad
+			new_direction = -grad
 		else:
 			residual = -np.reshape(grad,
 				(grad.shape[0]*grad.shape[1],1))
@@ -21,21 +17,19 @@ class CG(Optimizer):
 			last_direction = np.reshape(self.direction, 
 				(self.direction.shape[0]*self.direction.shape[1],1))
 			beta = residual.T @ (residual-last_residual) / (last_residual.T @ last_residual)
-			self.direction = residual + beta*last_direction
-   
-		# Calculate new energy
-		stepsize = line_search_fn(
-			max_step=max_step,
-			min_step=min_step,
-			schedule=kwargs['schedule'])		
-	
-		# Perform a step (MUST REFORM TO CARTESIAN AND APPLY STRAINS AND CUTOFF)
-		params = params + stepsize*self.direction
+			new_direction = np.reshape(residual + beta*last_direction, params.shape)
+   		
+		# Calculate stepsize
+		lnsearch = getattr(self.lnscheduler, line_search_fn)
+		stepsize = lnsearch(gnorm=gnorm, iteration=self.iterno)	
+  
+		# Perform a step
+		params = params + stepsize*new_direction
 
-		# Add name of used method to list
-		self.methods += ['CG']
+		# Keep current iteration gradient info
 		self.iterno += 1
 		self.residual = -grad
+		self.direction = new_direction
 
 		return params
 

@@ -39,9 +39,9 @@ def makeExtension(extName):
         )
 
 # get the list of extensions
-packNames = ["potentials"]
+packNames = ["analytic_potentials"]
 packNo = 0
-extNames = scandir("relax/potentials")
+extNames = scandir("relax/analytic_potentials")
 
 # and build up the set of Extension objects
 extensions = cythonize(
@@ -50,8 +50,8 @@ extensions = cythonize(
 
 
 setup(
-  name="potentials",
-  packages=["potentials"],
+  name="analytic_potentials",
+  packages=["analytic_potentials"],
   ext_modules=extensions,
   cmdclass = {'build_ext': build_ext},
 )

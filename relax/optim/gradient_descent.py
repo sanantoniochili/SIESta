@@ -1,31 +1,25 @@
 import numpy as np
 from ase.geometry import wrap_positions
-from relax.potentials.potential import *
-from relax.linmin import *
-from optimizer import Optimizer
+from relax.optim.analytic import *
+from relax.optim.linmin import LnSearch
+from relax.optim.optimizer import Optimizer
 
 class GD(Optimizer):
 
-	def step(self, grad, max_step, min_step, params, 
-          line_search_fn=steady_step, **kwargs):
+	def step(self, grad, gnorm, params, line_search_fn):
 
 		# Calculate direction
-		self.methods += ['GD']
 		self.direction = -grad
    
-		# Calculate new energy
-		stepsize = line_search_fn(
-			max_step=max_step,
-			min_step=min_step,
-			schedule=kwargs['schedule'])		
+		# Calculate stepsize
+		lnsearch = getattr(self.lnscheduler, line_search_fn)
+		stepsize = lnsearch(gnorm=gnorm, iteration=self.iterno)	
 
-        # Perform a step (MUST REFORM TO CARTESIAN AND APPLY STRAINS AND CUTOFF)
+        # Perform a step
 		params = params + stepsize*self.direction
 
 		# Add name of used method to list
-		self.methods += ['GD']
 		self.iterno += 1
-		self.residual = -grad
 
 		return params
 

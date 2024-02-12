@@ -10,8 +10,8 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter,
                                AutoMinorLocator)
 from ase.geometry import wrap_positions, get_distances
 
-from relax.potentials.coulomb.coulomb import *
-from relax.potentials.buckingham.buckingham import *
+from relax.analytic_potentials.coulomb.coulomb import *
+from relax.analytic_potentials.buckingham.buckingham import *
 from ase.cell import Cell
 
 def finite_diff_grad(atoms, analytical_grad, ions, 

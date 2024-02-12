@@ -1,0 +1,40 @@
+data_image0
+_chemical_formula_structural       O9Sr3Ti3
+_chemical_formula_sum              "O9 Sr3 Ti3"
+_cell_length_a       4.00654
+_cell_length_b       7.99392
+_cell_length_c       10.0072
+_cell_angle_alpha    90.0172
+_cell_angle_beta     89.9935
+_cell_angle_gamma    90.0105
+
+_space_group_name_H-M_alt    "P 1"
+_space_group_IT_number       1
+
+loop_
+  _space_group_symop_operation_xyz
+  'x, y, z'
+
+loop_
+  _atom_site_type_symbol
+  _atom_site_label
+  _atom_site_symmetry_multiplicity
+  _atom_site_fract_x
+  _atom_site_fract_y
+  _atom_site_fract_z
+  _atom_site_occupancy
+  O   O1        1.0  0.49956  0.24230  0.60383  1.0000
+  O   O2        1.0  0.99584  0.75750  0.79703  1.0000
+  O   O3        1.0  0.50497  0.50016  0.79984  1.0000
+  O   O4        1.0  0.50557  0.24978  0.00130  1.0000
+  O   O5        1.0  0.50024  0.50061  0.19419  1.0000
+  O   O6        1.0  0.99967  0.49989  0.19625  1.0000
+  O   O7        1.0  0.00038  0.24298  0.60168  1.0000
+  O   O8        1.0  0.50003  0.24010  0.39726  1.0000
+  O   O9        1.0  0.49986  0.50587  0.40370  1.0000
+  Sr  Sr1       1.0  0.25017  0.86919  0.49664  1.0000
+  Sr  Sr2       1.0  0.24549  0.12570  0.89871  1.0000
+  Sr  Sr3       1.0  0.24957  0.62240  0.90418  1.0000
+  Ti  Ti1       1.0  0.74995  0.87104  0.70228  1.0000
+  Ti  Ti2       1.0  0.74807  0.37881  0.10571  1.0000
+  Ti  Ti3       1.0  0.25064  0.14368  0.49740  1.0000

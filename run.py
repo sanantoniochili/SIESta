@@ -7,6 +7,10 @@ from ase import *
 from ase.io import read as aread
 from ase.io import write as awrite
 
+from relax.optim.gradient_descent import GD
+from relax.optim.conjugate_gradient import CG
+from relax.optim.linmin import *
+
 charge_dict = {
 	'O' : -2.,
 	'Sr':  2.,
@@ -20,6 +24,9 @@ charge_dict = {
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
 		description='Define input')
+	parser.add_argument(
+        'choose_mode', metavar='--choose', type=str,
+        help='Choose between packages: \'analytic\' or \'auto\'.')
 	parser.add_argument(
 		'-i', metavar='--input', type=str,
 		help='.cif file to read')
@@ -45,13 +52,18 @@ if __name__ == "__main__":
         '-m', metavar='--relaxation_method', type=str,
         help='Choose updating method')
 	parser.add_argument(
-        '-c', metavar='--choose', type=str,
-        help='Choose between packages: \'analytic\' or \'torch\'.')
-	parser.add_argument(
         '-d', '--debug', action='store_true',
         help='Print numerical derivatives.')
-	
+	parser.add_argument(
+		'-ln', metavar='--line_search',
+		nargs='*', required=True,
+		help='Type name of line search method and optional parameter value. One of: \n\
+      			-gnorm_scheduled_bisection <order>\n\
+				-scheduled_bisection <schedule>\n\
+				-scheduled_exp <exponent>\n\
+				-steady_step')
 	args = parser.parse_args()
+
 
 	"""  INPUT  """
 	structure = None
@@ -62,8 +74,6 @@ if __name__ == "__main__":
 		structure = Path(filename).stem
 		
 		# Give name to structure
-		if args.n:
-			structure = args.n
 		if structure.isnumeric():
 			structure = "structure_"+structure+"_"+str(atoms.symbols)
 	else:
@@ -75,70 +85,52 @@ if __name__ == "__main__":
 	"""  INITIALISATION  """
 	N 					= len(atoms.positions)
 	accuracy			= 0.000000000000000000001
-	
+	outdir = args.o if args.o else "output/"
+ 
 	# Avoid truncating too many terms
 	assert((-np.log(accuracy)/N**(1/6)) >= 1)
 
-	if args.choose == 'analytic':
-		from relax.optim.analytic import *
-	# else:
-	# 	from relax.optim.auto import *
-     
-	outdir = args.o if args.o else "output/"
+	# Choosing package
+	if 'an' in args.choose_mode:
+		from relax.optim.analytic import repeat
+	else:
+		from relax.optim.autodiff import repeat
 
-	# ########################### RELAXATION #############################
-	# from relax.descent import *
-	# import time
 
-	# potentials = {}
-	# initial_energy = 0
-
-	# desc = Descent(iterno=50000)
+	"""  RELAXATION  """   
+	lnsearch = LnSearch(
+		max_step=args.su if args.su else 1e-3,
+		min_step=args.sl if args.sl else 1e-5,
+		schedule=100,
+		exponent=0.999,
+		order=10,
+		gnorm=0
+	)
+	if args.ln:
+		line_search_fn = args.ln[0]
+	else:
+		line_search_fn = 'steady_step'
+	if len(args.ln)==2:
+		if args.ln[0] == 'gnorm_scheduled_bisection':
+			lnsearch.order = float(args.ln[1])
+		elif args.ln[0] == 'scheduled_bisection':
+			lnsearch.schedule = int(args.ln[1])
+		elif args.ln[0] == 'scheduled_exp':
+			lnsearch.exp = float(args.ln[1])
+  
+	optimizer = GD(lnsearch)
+	if args.m:
+		optimizer = globals()[args.m](lnsearch)	
 	
-	# initial_energy += coulomb_energies['All']
-	# potentials['Coulomb'] = Cpot
-
-	# initial_energy += buckingham_energies['All']
-	# potentials['Buckingham'] = Bpot
-
-	# outdir = args.o if args.o else "output/"
-	# if not os.path.isdir(outdir):
-	# 	os.mkdir(outdir) 
-	
-	# direction = GD
-	# if args.m:
-	# 	if "CG" in args.m:
-	# 		direction = CG
-	
-	# prettyprint({
-	# 	'Chemical Symbols':chemical_symbols, 
-	# 	'Positions':atoms.positions, \
-	# 	'Cell':atoms.get_cell(), 
-	# 	'Electrostatic energy':coulomb_energies, 
-	# 	'Interatomic energy':buckingham_energies, \
-	# 	'Total energy':initial_energy})
-
-	# iteration = {'Energy': initial_energy}
-	
-	# from relax.linmin import *
-	# from utility import utility
-
-	# if args.relax:
-
-	# 	desc.iterno = 70000
-	# 	evals, iteration = desc.repeat(
-	# 		init_energy=iteration['Energy'],
-	# 		atoms=atoms, 
-	# 		potentials=potentials, 
-	# 		outdir=outdir,
-	# 		outfile=structure,
-	# 		direction_func=direction,
-	# 		step_func=steady_step,
-	# 		usr_flag=args.user,
-	# 		max_step=args.su if args.su else 0.01,
-	# 		min_step=args.sl if args.sl else 0.00001,
-	# 		out=args.out if args.out else 1,
-	# 		reset=args.reset if args.reset else False,
-	# 		debug=args.debug if args.debug else False,
-	# 		params=['ions','lattice']
-	# 		)
+	if args.relax:	
+		repeat(
+			atoms=atoms, 
+			outdir=outdir,
+			outfile=structure,
+			charge_dict=charge_dict,
+			optimizer=optimizer, 
+			line_search_fn=line_search_fn,
+   			usr_flag=args.user, 
+      		out=args.out if args.out else 1, 
+			debug=args.debug if args.debug else False,
+		)
