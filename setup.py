@@ -4,8 +4,6 @@ from distutils.extension import Extension
 from Cython.Build import cythonize
 import Cython.Compiler.Options
 
-Cython.Compiler.Options.annotate = True
-
 try:
     from Cython.Distutils import build_ext
 except:
