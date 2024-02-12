@@ -30,7 +30,7 @@ class Coulomb(EwaldPotential):
 
 		self.real = None
 		self.recip = None
-		self.self = None
+		self.self_energy = None
 
 	
 	def set_cutoff_parameters(self, vects: Tensor=None, N: int=0, 
@@ -124,7 +124,7 @@ class Coulomb(EwaldPotential):
 			esum = torch.add(esum, -torch.mul(self.charges[ioni]**2, alphapi))
    
 		esum = torch.mul(esum, 14.399645351950543)  # electrostatic constant
-		self.self = esum
+		self.self_energy = esum
 		return esum
 
 	def energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:

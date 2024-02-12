@@ -2,7 +2,7 @@ import numpy as np
 import torch, math
 from torch import Tensor
 from math import pi
-from typing import Callable
+from typing import Tuple
 
 class EwaldPotential:
 	"""Generic class for defining potentials."""
@@ -23,7 +23,7 @@ class EwaldPotential:
 		return alpha
 
 
-	def get_gradient(self, energy: Tensor, scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor) -> (Tensor, Tensor):
+	def gradient(energy: Tensor, scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor) -> Tuple[Tensor, Tensor]:
 		if not volume:
 			volume = torch.det(vects)
    
@@ -40,7 +40,7 @@ class EwaldPotential:
 		return (pos_grad, strains_grad)
 
 
-	def get_hessian(self, grad: Tensor, scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor):
+	def hessian(grad: Tuple[Tensor, Tensor], scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor):
 		if not volume:
 			volume = torch.det(vects)
 

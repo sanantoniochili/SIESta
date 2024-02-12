@@ -20,7 +20,7 @@ class Buckingham(EwaldPotential):
         
         self.real = None
         self.recip = None
-        self.self = None
+        self.self_energy = None
 
         self.chemical_symbols = chemical_symbols.copy()
         self.charges = np.zeros((len(chemical_symbols),))
@@ -79,7 +79,7 @@ class Buckingham(EwaldPotential):
                         torch.div(torch.mul(C, alpha6), 6))
             
         esum = torch.div(esum, 2)
-        self.self = esum
+        self.self_energy = esum
         return esum
     
     
@@ -217,7 +217,7 @@ class Buckingham(EwaldPotential):
     def energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
         real_energy = self.ewald_real_energy(pos, vects)	
         recip_energy = self.ewald_recip_energy(pos, vects, volume)
-        self_energy = self.ewald_self_energy(pos, len(pos))
+        self_energy = self.ewald_self_energy(volume, len(pos))
 
         energy = torch.add(real_energy, recip_energy)
         energy = torch.add(energy, self_energy)

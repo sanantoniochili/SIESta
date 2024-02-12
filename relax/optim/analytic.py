@@ -77,7 +77,7 @@ def init(charge_dict, atoms, outdir):
 		'Interatomic energy':Bpot.get_all_ewald_energies(), \
 		'Total energy':initial_energy})
  
-	return potentials, vects, scaled_pos, N
+	return potentials, vects, scaled_pos, initial_energy
  
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -120,14 +120,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 	
 	"""
 	strains = np.ones((3,3))
-	potentials, vects, _, N = init(charge_dict, atoms, outdir)
+	potentials, vects, _, initial_energy = init(charge_dict, atoms, outdir)
 	pos = atoms.get_positions()
-	
-	# Calculate energy on current PES point
-	initial_energy =0
-	for name in potentials:
-		if hasattr(potentials[name], 'energy'):
-			initial_energy += potentials[name].energy(atoms)
 
 	final_iteration = None
 	history = []

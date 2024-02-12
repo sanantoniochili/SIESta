@@ -11,6 +11,7 @@ from ase.geometry import cell_to_cellpar, cellpar_to_cell
 from relax.autodiff_potentials.coulomb.coulomb import Coulomb
 from relax.autodiff_potentials.buckingham.buckingham import Buckingham
 from relax.autodiff_potentials.cutoff import inflated_cell_truncation
+from relax.autodiff_potentials.ewaldpotential import EwaldPotential
 from relax.finite_differences import finite_diff_grad
 
 import shutil
@@ -89,7 +90,7 @@ def init(charge_dict, atoms, outdir):
         'Interatomic energy':buckingham_energy, \
         'Total energy':initial_energy})
 
-    return potentials, vects, scaled_pos, N
+    return potentials, strains_vec, vects, scaled_pos, initial_energy
 
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -131,19 +132,18 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     (int, dict[str, _])
 
     """
-    strains = np.ones((3,3))
-    potentials, vects, scaled_pos, N = init(charge_dict, atoms, outdir)
+    res                 = init(charge_dict, atoms, outdir)
+    potentials          = res[0]
+    strains_vec         = res[1]
+    vects               = res[2]
+    scaled_pos          = res[3]
+    initial_energy      = res[4]
     pos 				= torch.matmul(scaled_pos, vects)
     volume 				= torch.det(vects)
 
-    # Calculate energy on current PES point
-    initial_energy =0
-    for name in potentials:
-        if hasattr(potentials[name], 'energy'):
-            initial_energy += potentials[name].energy(pos, vects, volume)
-
     final_iteration = None
     history = []
+    N = len(pos)
 
     if not os.path.isdir(outdir+"imgs"):
         os.mkdir(outdir+"imgs")
@@ -154,12 +154,11 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     if not os.path.isdir(outdir+"structs/"+outfile+"/"):
         os.mkdir(outdir+"structs/"+outfile)
 
-    # # Gradient for current point on PES
-    # grad = np.zeros((N+3,3))
-    # for name in potentials:
-    #     if hasattr(potentials[name], 'gradient'):
-    #         grad += np.array(potentials[name].gradient(
-    #         pos_array=pos, vects_array=vects, N_=N))
+    # Gradient for current point on PES
+    grad = EwaldPotential.gradient(
+            initial_energy, scaled_pos, vects, strains_vec, volume)
+
+            
     # # Print numerical derivatives
     # if 'debug' in kwargs:
     #     if kwargs['debug']:
