@@ -122,6 +122,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 	strains = np.ones((3,3))
 	potentials, vects, _, initial_energy = init(charge_dict, atoms, outdir)
 	pos = atoms.get_positions()
+	N = len(pos)
 
 	final_iteration = None
 	history = []

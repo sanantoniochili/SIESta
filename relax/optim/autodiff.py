@@ -90,7 +90,8 @@ def init(charge_dict, atoms, outdir):
         'Interatomic energy':buckingham_energy, \
         'Total energy':initial_energy})
 
-    return potentials, strains_vec, vects, scaled_pos, initial_energy
+    return potentials, strains_vec, strains, \
+        vects, scaled_pos, initial_energy
 
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -135,15 +136,16 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     res                 = init(charge_dict, atoms, outdir)
     potentials          = res[0]
     strains_vec         = res[1]
-    vects               = res[2]
-    scaled_pos          = res[3]
-    initial_energy      = res[4]
+    strains             = res[2]
+    vects               = res[3]
+    scaled_pos          = res[4]
+    energy              = res[5]
     pos 				= torch.matmul(scaled_pos, vects)
     volume 				= torch.det(vects)
+    N = len(pos)
 
     final_iteration = None
     history = []
-    N = len(pos)
 
     if not os.path.isdir(outdir+"imgs"):
         os.mkdir(outdir+"imgs")
@@ -155,131 +157,175 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         os.mkdir(outdir+"structs/"+outfile)
 
     # Gradient for current point on PES
-    grad = EwaldPotential.gradient(
-            initial_energy, scaled_pos, vects, strains_vec, volume)
+    grad_tensor = EwaldPotential.gradient(
+            energy, scaled_pos, vects, strains_vec, volume)
+    # Gradient to numpy and free tensor
+    pos_grad = grad_tensor[0].detach().numpy().copy()
+    strains_grad = grad_tensor[1].detach().numpy().copy()
+    # All to one array
+    grad = np.zeros((N+3,3))
+    grad[:N, :] = pos_grad
+    ind = np.triu_indices(3)
+    grad[N+ind[0], ind[1]] = strains_grad
+    grad[N+1][0] = grad[N][1]
+    grad[N+2][1] = grad[N+1][2]
+    grad[N+2][0] = grad[N][2]
+    
+    # Gradient norm
+    gnorm = EwaldPotential.get_gnorm(grad, N)
+    optimizer.lnscheduler.gnorm = gnorm
 
+    # Normalise gradient
+    if gnorm>0:
+        grad_norm = grad/gnorm
+    else:
+        grad_norm = 0
+
+    # Keep info of this iteration
+    iteration = {
+    'Gradient':grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
+    'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
+    'Step': 0, 'Gnorm':gnorm, 'Energy':energy
+    }
+
+    # Iterations
+    while(True):
+        final_iteration = iteration
+
+        # Check for termination
+        prettyprint(iteration)
+        if optimizer.completion_check(gnorm):
+            print("Writing result to file",
+            outfile+"_"+str(optimizer.iterno),"...")
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
+            write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".cif", atoms)
+            dict_file = open(
+                outdir+"structs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".pkl", "wb")
+            pickle.dump(
+                {**iteration, 'Optimised': True}, 
+                dict_file)
+            dict_file.close()				
+            break
+        elif (optimizer.iterno%out)==0:
+            print("Writing result to file",
+            outfile+"_"+str(optimizer.iterno),"...")
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
+            write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".cif", atoms)
+            dict_file = open(
+                outdir+"structs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".pkl", "wb")
+            pickle.dump(
+                {**iteration, 'Optimised': False}, 
+                dict_file)
+            dict_file.close()
+        elif (('iterno' in kwargs) & (kwargs['iterno'] >= optimizer.iterno)):
+            break
+
+        if usr_flag:
+            usr = input()
+            if 'n' in usr:
+                return iteration
             
-    # # Print numerical derivatives
-    # if 'debug' in kwargs:
-    #     if kwargs['debug']:
-    #         finite_diff_grad(
-    #             atoms, grad, N, strains, 0.00001, potentials)
-    # # Gradient norm
-    # gnorm = get_gnorm(grad, N)
-    # optimizer.lnscheduler.gnorm = gnorm
+        # Tensors to numpy
+        pos_np = pos.detach().numpy().copy()
+        vects_np = vects.detach().numpy().copy()
+        
+        # Delete the tensors
+        del energy
+        del pos
+        del vects
+        del volume
+        del strains
+        del strains_vec
 
-    # # Normalise gradient
-    # if gnorm>0:
-    #     grad_norm = grad/gnorm
-    # else:
-    #     grad_norm = 0
+        ''' 1 --- Apply an optimization step --- 1 '''
+        params = np.concatenate((pos_np, np.ones((3,3))), axis=0)
+        params = optimizer.step(grad_norm, gnorm, params, line_search_fn)
 
-    # # Keep info of this iteration
-    # iteration = {
-    # 'Gradient':grad, 'Positions':atoms.positions.copy(), 
-    # 'Strains':strains, 'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
-    # 'Step': 0, 'Gnorm':gnorm, 'Energy':initial_energy}
+        # Make a method history
+        history.append(type(optimizer).__name__)
 
-    # # Iterations
-    # while(True):
-    #     final_iteration = iteration
+        ''' 2 --- Update parameters --- 2 '''
+        # Make sure ions stay in unit cell
+        pos_temp = wrap_positions(params[:N], vects_np)
+        # Update strains
+        strains_np = (params[N:]-1)+np.identity(3)
 
-    #     # Check for termination
-    #     prettyprint(iteration)
-    #     if optimizer.completion_check(gnorm):
-    #         print("Writing result to file",
-    #         outfile+"_"+str(optimizer.iterno),"...")
-    #         write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".png", atoms)
-    #         write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".cif", atoms)
-    #         dict_file = open(
-    #             outdir+"structs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".pkl", "wb")
-    #         pickle.dump(
-    #             {**iteration, 'Optimised': True}, 
-    #             dict_file)
-    #         dict_file.close()				
-    #         break
-    #     elif (optimizer.iterno%out)==0:
-    #         print("Writing result to file",
-    #         outfile+"_"+str(optimizer.iterno),"...")
-    #         write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".png", atoms)
-    #         write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".cif", atoms)
-    #         dict_file = open(
-    #             outdir+"structs/"+outfile+"/"+outfile+"_"+\
-    #             str(optimizer.iterno)+".pkl", "wb")
-    #         pickle.dump(
-    #             {**iteration, 'Optimised': False}, 
-    #             dict_file)
-    #         dict_file.close()
-    #     elif (('iterno' in kwargs) & (kwargs['iterno'] >= optimizer.iterno)):
-    #         break
+        # Apply strains to all unit cell vectors
+        pos_np = pos_temp @ strains_np.T
+        vects_np = vects_np @ strains_np.T
 
-    #     if usr_flag:
-    #         usr = input()
-    #         if 'n' in usr:
-    #             return iteration
+        # Calculate new point on energy surface
+        atoms.positions = pos_np
+        atoms.set_cell(vects_np)
+        
+        # Get new tensors
+        strains_vec = torch.tensor(strains_np[np.triu_indices(3)], requires_grad=True)
+        strains		= .5*torch.ones((3,3))+ .5*torch.eye(3, dtype=torch.float64)
+        ind = torch.triu_indices(row=3, col=3, offset=0)
+        strains[ind[0], ind[1]] = strains[ind[0], ind[1]]*strains_vec
+        strains[1][0]       = strains[0][1]
+        strains[2][1]       = strains[1][2]
+        strains[2][0]       = strains[0][2]
+        
+        vects 				= torch.tensor(vects_np, dtype=torch.float64, requires_grad=False)
+        scaled_pos 			= torch.tensor(pos_np @ np.linalg.inv(vects), requires_grad=True)
+        vects				= torch.matmul(vects, torch.transpose(strains, 0, 1))
+        pos 				= torch.matmul(scaled_pos, vects)
+        volume 				= torch.det(vects)
 
-    #     ''' 1 --- Apply an optimization step --- 1 '''
-    #     params = np.concatenate((pos, np.ones((3,3))), axis=0)
-    #     params = optimizer.step(grad_norm, gnorm, params, line_search_fn)
+        # Assign parameters calculated with altered volume
+        for name in potentials:
+            if hasattr(potentials[name], 'set_cutoff_parameters'):
+                potentials[name].set_cutoff_parameters(vects, N)
 
-    #     # Make a method history
-    #     history.append(type(optimizer).__name__)
+        ''' 3 --- Re-calculate energy --- 3 '''
+        # Calculate energy on current PES point
+        energy = torch.tensor(0.)
+        for name in potentials:
+            if hasattr(potentials[name], 'energy'):
+                energy = torch.add(energy, 
+                            potentials[name].energy(pos, vects, volume))
 
-    #     ''' 2 --- Update parameters --- 2 '''
-    #     # Make sure ions stay in unit cell
-    #     pos_temp = wrap_positions(params[:N], vects)
-    #     # Update strains
-    #     strains = (params[N:]-1)+np.identity(3)
+        ''' 4 --- Re-calculate derivatives --- 4 '''
+        # Gradient for current point on PES
+        grad_tensor = EwaldPotential.gradient(
+                energy, scaled_pos, vects, strains_vec, volume)
+        # Gradient to numpy and free tensor
+        pos_grad = grad_tensor[0].detach().numpy().copy()
+        strains_grad = grad_tensor[1].detach().numpy().copy()
+        # All to one array
+        grad = np.zeros((N+3,3))
+        grad[:N, :] = pos_grad
+        ind = np.triu_indices(3)
+        grad[N+ind[0], ind[1]] = strains_grad
+        grad[N+1][0] = grad[N][1]
+        grad[N+2][1] = grad[N+1][2]
+        grad[N+2][0] = grad[N][2]
+        
+        if abs(grad[0][0]) < 1e-7:
+            pass
+        
+        # Gradient norm
+        gnorm = EwaldPotential.get_gnorm(grad, N)
+        optimizer.lnscheduler.gnorm = gnorm
 
-    #     # Apply strains to all unit cell vectors
-    #     pos = pos_temp @ strains.T
-    #     vects = vects @ strains.T
-
-    #     # Calculate new point on energy surface
-    #     atoms.positions = pos
-    #     atoms.set_cell(vects)
-
-    #     # Assign parameters calculated with altered volume
-    #     for name in potentials:
-    #         if hasattr(potentials[name], 'set_cutoff_parameters'):
-    #             potentials[name].set_cutoff_parameters(vects, N)
-
-    #     ''' 3 --- Re-calculate energy --- 3 '''
-    #     # Calculate energy on current PES point
-    #     energy =0
-    #     for name in potentials:
-    #         if hasattr(potentials[name], 'energy'):
-    #             energy += potentials[name].energy(atoms)
-
-    #     ''' 4 --- Re-calculate derivatives --- 4 '''
-    #     # Gradient of this point on PES
-    #     grad = np.zeros((N+3,3))
-    #     for name in potentials:
-    #         grad += np.array(potentials[name].gradient(atoms))
-    #     # Gradient norm
-    #     gnorm = get_gnorm(grad,N)
-    #     # Normalise gradient
-    #     if gnorm>0:
-    #         grad_norm = grad/gnorm
-    #     else:
-    #         grad_norm = 0
-
-    #     # Print numerical derivatives
-    #     if 'debug' in kwargs:
-    #         if kwargs['debug']:
-    #             finite_diff_grad(
-    #                 atoms, grad, N, params[N:], 0.00001, potentials)
+        # Normalise gradient
+        if gnorm>0:
+            grad_norm = grad/gnorm
+        else:
+            grad_norm = 0
             
-    #     iteration = {
-    #     'Gradient':grad, 'Positions':atoms.positions.copy(), 
-    #     'Strains':strains, 'Cell':np.array(atoms.get_cell()), 
-    #     'Iter':optimizer.iterno, 'Method': history[-1], 
-    #     'Step':optimizer.lnscheduler.curr_step, 'Gnorm':gnorm, 'Energy':energy}
+        iteration = {
+        'Gradient':grad, 'Positions':atoms.positions.copy(), 
+        'Strains':params[N:], 'Cell':np.array(atoms.get_cell()), 
+        'Iter':optimizer.iterno, 'Method': history[-1], 
+        'Step':optimizer.lnscheduler.curr_step, 'Gnorm':gnorm, 'Energy':energy}
 
-    # return final_iteration
+    return final_iteration
 

@@ -83,3 +83,10 @@ class EwaldPotential:
 				hessian[3*N+straini][3*N+strainj] = partial_strain_i_hessian[1][strainj]
 		
 		return hessian
+
+	def get_gnorm(grad, N):
+		ind = np.tril_indices(3, k=-1)
+		unique_grad = grad.copy()
+		unique_grad[N+ind[0], ind[1]] = 0
+		gnorm = np.sum(unique_grad**2)
+		return math.sqrt(gnorm)/(3*N+6)

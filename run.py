@@ -25,7 +25,7 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
 		description='Define input')
 	parser.add_argument(
-        'choose_mode', metavar='--choose', type=str,
+        'choose_mode', metavar='--mode', type=str,
         help='Choose between packages: \'analytic\' or \'auto\'.')
 	parser.add_argument(
 		'-i', metavar='--input', type=str,
