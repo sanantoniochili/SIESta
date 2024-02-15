@@ -1,5 +1,4 @@
 import numpy as np
-from relax.optim.linmin import *
 from relax.optim.optimizer import Optimizer
 
 class CG(Optimizer):

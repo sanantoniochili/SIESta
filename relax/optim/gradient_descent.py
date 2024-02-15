@@ -1,7 +1,5 @@
 import numpy as np
-from ase.geometry import wrap_positions
 from relax.optim.analytic import *
-from relax.optim.linmin import LnSearch
 from relax.optim.optimizer import Optimizer
 
 class GD(Optimizer):
@@ -18,7 +16,7 @@ class GD(Optimizer):
         # Perform a step
 		params = params + stepsize*self.direction
 
-		# Add name of used method to list
+		# Increase iteration number
 		self.iterno += 1
 
 		return params
