@@ -31,7 +31,8 @@ You can use pip and install the required packages with the command ```pip instal
 - numpy
 - ase
 - cython
-- jupyter notebook (optional, only if using the run.ipynb file)
+- scikit-learn
+- pylanczos
 
 #### 2. Requirements.txt
 Otherwise, while the Python environment is activated, you can install the required packages using the given [requirements](requirements.txt) text file (please use a recent version of Python e.g. 3.11)

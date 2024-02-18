@@ -61,7 +61,7 @@ def init(charge_dict, atoms, outdir):
     Cpot.set_cutoff_parameters(
         vects=vects, 
         N=N)
-    coulomb_energy = Cpot.energy(pos, vects, volume)
+    coulomb_energy = Cpot.all_energy(pos, vects, volume)
 
     # Define Buckingham potential object
     Bpot = Buckingham(
@@ -72,7 +72,7 @@ def init(charge_dict, atoms, outdir):
     Bpot.set_cutoff_parameters(
         vects=vects, 
         N=N)
-    buckingham_energy = Bpot.energy(pos, vects, volume)
+    buckingham_energy = Bpot.all_energy(pos, vects, volume)
 
     potentials = {}	
     potentials['Coulomb'] = Cpot
@@ -91,7 +91,7 @@ def init(charge_dict, atoms, outdir):
         'Total energy':initial_energy})
 
     return potentials, strains_vec, strains, \
-        vects, scaled_pos, initial_energy
+        vects, scaled_pos
 
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -139,7 +139,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     strains             = res[2]
     vects               = res[3]
     scaled_pos          = res[4]
-    energy              = res[5]
     pos 				= torch.matmul(scaled_pos, vects)
     volume 				= torch.det(vects)
     N = len(pos)
@@ -157,35 +156,41 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         os.mkdir(outdir+"structs/"+outfile)
 
     # Gradient for current point on PES
-    grad_tensor = EwaldPotential.gradient(
-            energy, scaled_pos, vects, strains_vec, volume)
-    # Gradient to numpy and free tensor
-    pos_grad = grad_tensor[0].detach().numpy().copy()
-    strains_grad = grad_tensor[1].detach().numpy().copy()
-    # All to one array
-    grad = np.zeros((N+3,3))
-    grad[:N, :] = pos_grad
-    ind = np.triu_indices(3)
-    grad[N+ind[0], ind[1]] = strains_grad
-    grad[N+1][0] = grad[N][1]
-    grad[N+2][1] = grad[N+1][2]
-    grad[N+2][0] = grad[N][2]
+    grad = {
+        'positions': torch.zeros((N, 3)),
+        'strains': torch.zeros((6,))
+    }
+    for name in potentials:
+        grad_res = potentials[name].gradient(
+            potentials[name].energy, scaled_pos, N,
+            vects, strains_vec, volume)
+        grad['positions'] = torch.add(
+            grad['positions'], grad_res['positions'])
+        grad['strains'] = torch.add(
+            grad['strains'], grad_res['strains'])
+    
+    # Hessian for current point on PES
+    hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)))
+    if optimizer.requires_hessian:
+        for name in potentials:
+            hess_res = potentials[name].hessian(
+                potentials[name].grad, scaled_pos, vects, strains_vec, volume)
+        hessian = torch.add(hessian, hess_res)
     
     # Gradient norm
     gnorm = EwaldPotential.get_gnorm(grad, N)
     optimizer.lnscheduler.gnorm = gnorm
-
-    # Normalise gradient
-    if gnorm>0:
-        grad_norm = grad/gnorm
-    else:
-        grad_norm = 0
+    
+    # Sum energy values
+    total_energy = 0
+    for name in potentials:
+        total_energy += potentials[name].energy.item()
 
     # Keep info of this iteration
     iteration = {
-    'Gradient':grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
+    'Gradient': grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
     'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
-    'Step': 0, 'Gnorm':gnorm, 'Energy':energy
+    'Step': 0, 'Gnorm':gnorm, 'Energy':total_energy
     }
 
     # Iterations
@@ -232,21 +237,37 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                 return iteration
             
         # Tensors to numpy
-        pos_np = pos.detach().numpy().copy()
+        params = np.ones((N+2,3))
+        params[:N] = pos.detach().numpy().copy()
         vects_np = vects.detach().numpy().copy()
         
         # Delete the tensors
-        del energy
+        for name in potentials:
+            del potentials[name].energy
         del pos
         del vects
         del volume
         del strains
         del strains_vec
+        
+        # Save grad to numpy
+        grad_np = np.zeros((N+2, 3))
+        grad_np[:N] = grad['positions'].detach().numpy()
+        grad_np[N:] = np.reshape(grad['strains'].detach().numpy(),
+                                 newshape=(2, 3))
+        
+        # Normalise gradient    
+        grad_norm = np.zeros((N+2, 3))    
+        if gnorm>0:
+            grad_norm = grad_np/gnorm
 
         ''' 1 --- Apply an optimization step --- 1 '''
-        params = np.concatenate((pos_np, np.ones((3,3))), axis=0)
-        params = optimizer.step(grad_norm, gnorm, params, line_search_fn)
-
+        params = optimizer.step(
+            grad_norm, 
+            gnorm, params, line_search_fn, 
+            hessian=hessian.detach().numpy(), 
+            L2=10)
+        
         # Make a method history
         history.append(type(optimizer).__name__)
 
@@ -254,9 +275,16 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         # Make sure ions stay in unit cell
         pos_temp = wrap_positions(params[:N], vects_np)
         # Update strains
-        strains_np = (params[N:]-1)+np.identity(3)
+        strains_np		= np.zeros((3,3))
+        ind = np.triu_indices(3)
+        strains_np[ind[0], ind[1]] = np.reshape(
+            params[N:], newshape=(6,))
+        strains_np[1][0]       = strains_np[0][1]
+        strains_np[2][1]       = strains_np[1][2]
+        strains_np[2][0]       = strains_np[0][2]
+        strains_np = (strains_np-1)+np.identity(3)
 
-        # Apply strains to all unit cell vectors
+        # Apply strains to all unit cell vectors as a 3x3 tensor
         pos_np = pos_temp @ strains_np.T
         vects_np = vects_np @ strains_np.T
 
@@ -265,7 +293,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         atoms.set_cell(vects_np)
         
         # Get new tensors
-        strains_vec = torch.tensor(strains_np[np.triu_indices(3)], requires_grad=True)
+        strains_vec = torch.tensor(
+            strains_np[np.triu_indices(3)], requires_grad=True)
         strains		= .5*torch.ones((3,3))+ .5*torch.eye(3, dtype=torch.float64)
         ind = torch.triu_indices(row=3, col=3, offset=0)
         strains[ind[0], ind[1]] = strains[ind[0], ind[1]]*strains_vec
@@ -286,46 +315,53 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
         ''' 3 --- Re-calculate energy --- 3 '''
         # Calculate energy on current PES point
-        energy = torch.tensor(0.)
+        total_energy = 0
         for name in potentials:
-            if hasattr(potentials[name], 'energy'):
-                energy = torch.add(energy, 
-                            potentials[name].energy(pos, vects, volume))
+            total_energy += potentials[name].all_energy(pos, vects, volume).item()
 
         ''' 4 --- Re-calculate derivatives --- 4 '''
         # Gradient for current point on PES
-        grad_tensor = EwaldPotential.gradient(
-                energy, scaled_pos, vects, strains_vec, volume)
-        # Gradient to numpy and free tensor
-        pos_grad = grad_tensor[0].detach().numpy().copy()
-        strains_grad = grad_tensor[1].detach().numpy().copy()
-        # All to one array
-        grad = np.zeros((N+3,3))
-        grad[:N, :] = pos_grad
-        ind = np.triu_indices(3)
-        grad[N+ind[0], ind[1]] = strains_grad
-        grad[N+1][0] = grad[N][1]
-        grad[N+2][1] = grad[N+1][2]
-        grad[N+2][0] = grad[N][2]
-        
-        if abs(grad[0][0]) < 1e-7:
-            pass
-        
+        grad = {
+            'positions': torch.zeros((N, 3)),
+            'strains': torch.zeros((6,))
+        }
+        for name in potentials:
+            grad_res = potentials[name].gradient(
+                potentials[name].energy, scaled_pos, N,
+                vects, strains_vec, volume)
+            grad['positions'] = torch.add(
+                grad['positions'], grad_res['positions'])
+            grad['strains'] = torch.add(
+                grad['strains'], grad_res['strains'])
+            
+        # Hessian for current point on PES
+        hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)))
+        if optimizer.requires_hessian:
+            for name in potentials:
+                hess_res = potentials[name].hessian(
+                    potentials[name].grad, scaled_pos, vects, strains_vec, volume)
+            hessian = torch.add(hessian, hess_res)
+    
         # Gradient norm
         gnorm = EwaldPotential.get_gnorm(grad, N)
-        optimizer.lnscheduler.gnorm = gnorm
+        optimizer.lnscheduler.gnorm = gnorm        
 
-        # Normalise gradient
+        # Save grad to numpy
+        grad_np = np.zeros((N+2, 3))
+        grad_np[:N] = grad['positions'].detach().numpy()
+        grad_np[N:] = np.reshape(grad['strains'].detach().numpy(),
+                                 newshape=(2, 3))
+        
+        # Normalise gradient    
+        grad_norm = np.zeros((N+2, 3))    
         if gnorm>0:
-            grad_norm = grad/gnorm
-        else:
-            grad_norm = 0
+            grad_norm = grad_np/gnorm
             
         iteration = {
         'Gradient':grad, 'Positions':atoms.positions.copy(), 
         'Strains':params[N:], 'Cell':np.array(atoms.get_cell()), 
         'Iter':optimizer.iterno, 'Method': history[-1], 
-        'Step':optimizer.lnscheduler.curr_step, 'Gnorm':gnorm, 'Energy':energy}
+        'Step':optimizer.lnscheduler.curr_step, 'Gnorm':gnorm, 'Energy':total_energy}
 
     return final_iteration
 

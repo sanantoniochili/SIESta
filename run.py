@@ -8,7 +8,8 @@ from ase.io import read as aread
 from ase.io import write as awrite
 
 from relax.optim.gradient_descent import GD
-from relax.optim.conjugate_gradient import CG
+from relax.optim.conjugate_gradient import *
+from relax.optim.cubic_minimization.main import *
 from relax.optim.linmin import *
 
 charge_dict = {

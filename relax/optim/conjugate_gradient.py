@@ -3,7 +3,7 @@ from relax.optim.optimizer import Optimizer
 
 class CG(Optimizer):
 
-	def step(self, grad, gnorm, params, line_search_fn):
+	def step(self, grad, gnorm, params, line_search_fn, **kwargs):
 
 		# Calculate direction
 		if self.iterno == 0:

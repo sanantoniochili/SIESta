@@ -11,9 +11,9 @@ from ..cutoff import *
 
 class Coulomb(EwaldPotential):
 
-
 	def __init__(self, chemical_symbols: npt.ArrayLike, charge_dict: Dict, get_shifts: callable):
-		
+		super().__init__()
+  
 		self.alpha = None
 		self.real_cut_off = 0
 		self.recip_cut_off = 0
@@ -127,12 +127,12 @@ class Coulomb(EwaldPotential):
 		self.self_energy = esum
 		return esum
 
-	def energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
+	def all_energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
 		real_energy = self.ewald_real_energy(pos, vects)	
 		recip_energy = self.ewald_recip_energy(pos, vects, volume)
 		self_energy = self.ewald_self_energy(pos)
 	
 		energy = torch.add(real_energy, recip_energy)
-		energy = torch.add(energy, self_energy)
-		return energy
+		self.energy = torch.add(energy, self_energy)
+		return self.energy
 

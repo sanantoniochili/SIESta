@@ -2,11 +2,13 @@ import numpy as np
 import torch, math
 from torch import Tensor
 from math import pi
-from typing import Tuple
+from typing import Dict
 
 class EwaldPotential:
-	"""Generic class for defining potentials."""
-
+	"""Generic class for defining Ewald sum potentials."""
+	def __init__(self) -> None:
+		self.energy = torch.tensor(0.)
+		self.grad = {}
 
 	def get_reciprocal_vects(self, vects: Tensor) -> Tensor:
 		volume = torch.det(vects)
@@ -23,10 +25,11 @@ class EwaldPotential:
 		return alpha
 
 
-	def gradient(energy: Tensor, scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor) -> Tuple[Tensor, Tensor]:
+	def gradient(self, energy: Tensor, scaled_pos: Tensor, N: int,
+              vects: Tensor, strains: Tensor, volume: Tensor) -> Dict[Tensor, Tensor]:
 		if not volume:
 			volume = torch.det(vects)
-   
+
 		scaled_grad = torch.autograd.grad(
 			energy, 
 			(scaled_pos, strains), 
@@ -34,19 +37,23 @@ class EwaldPotential:
 			create_graph=True, 
 			retain_graph=True,
 			materialize_grads=True)
-		pos_grad = torch.matmul(scaled_grad[0], torch.inverse(vects))
-		strains_grad = torch.div(scaled_grad[1], volume.item())
+  
+		self.grad = {
+      		'positions': torch.matmul(scaled_grad[0], torch.inverse(vects)),
+            'strains': torch.div(scaled_grad[1], volume.item())
+        }
 
-		return (pos_grad, strains_grad)
+		return self.grad
 
 
-	def hessian(grad: Tuple[Tensor, Tensor], scaled_pos: Tensor, vects: Tensor, strains: Tensor, volume: Tensor):
+	def hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
+             vects: Tensor, strains: Tensor, volume: Tensor) -> Tensor:
 		if not volume:
 			volume = torch.det(vects)
 
 		N = len(scaled_pos)
 		hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)))
-		pos_grad = grad[0]
+		pos_grad = grad['positions']
 		for ioni, beta in np.ndindex((len(scaled_pos), 3)):
 			partial_pos_i_hessian_scaled  = torch.autograd.grad(
 				pos_grad[ioni][beta], 
@@ -64,29 +71,33 @@ class EwaldPotential:
 			for straini in range(6):
 				hessian[3*ioni+beta][3*N+straini] = partial_pos_i_hessian[1][straini]
    
-		strains_grad = grad[1]
-		for straini in range(6):
-			partial_strain_i_hessian_scaled  = torch.autograd.grad(
-				strains_grad[straini], 
-				(scaled_pos, strains),
-				grad_outputs=(torch.ones_like(strains_grad[straini])),
-				create_graph=True, 
-				retain_graph=True,
-				materialize_grads=True)
-			partial_strain_i_hessian = (
-				torch.matmul(partial_strain_i_hessian_scaled[0], torch.inverse(vects)),
-				partial_strain_i_hessian_scaled[1]
-			)
-			for ionj, gamma in np.ndindex(N, 3):
-				hessian[3*N+straini][3*ionj+gamma] = partial_strain_i_hessian[0][ionj][gamma]
-			for strainj in range(6):
-				hessian[3*N+straini][3*N+strainj] = partial_strain_i_hessian[1][strainj]
+		strains_grad = grad['strains']
+		for straini in range(2):
+			for strainj in range(3):
+				partial_strain_i_hessian_scaled  = torch.autograd.grad(
+					strains_grad[straini][strainj], 
+					(scaled_pos, strains),
+					grad_outputs=(torch.ones_like(strains_grad[straini][strainj])),
+					create_graph=True, 
+					retain_graph=True,
+					materialize_grads=True)
+				partial_strain_i_hessian = (
+					torch.matmul(partial_strain_i_hessian_scaled[0], torch.inverse(vects)),
+					partial_strain_i_hessian_scaled[1]
+				)
+				for ionj, gamma in np.ndindex(N, 3):
+					hessian[3*N+3*straini+strainj][3*ionj+gamma] = \
+         				partial_strain_i_hessian[0][ionj][gamma]
+				for strainb in range(6):
+					hessian[3*N+3*straini+strainj][3*N+strainb] = \
+         				partial_strain_i_hessian[1][strainb]
 		
-		return hessian
+		self.hessian = hessian
+		return self.hessian
 
-	def get_gnorm(grad, N):
-		ind = np.tril_indices(3, k=-1)
-		unique_grad = grad.copy()
-		unique_grad[N+ind[0], ind[1]] = 0
-		gnorm = np.sum(unique_grad**2)
-		return math.sqrt(gnorm)/(3*N+6)
+	def get_gnorm(grad: Dict[Tensor, Tensor], N: int):
+		size, gnorm = 0, 0
+		for param in grad:
+			gnorm += torch.sum(grad[param]**2)
+			size += torch.numel(grad[param])
+		return math.sqrt(gnorm)/size

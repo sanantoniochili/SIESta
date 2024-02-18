@@ -10,6 +10,7 @@ class Optimizer:
         self.iterno = 0
         self.residual = None
         self.lnscheduler = lnsearch
+        self.requires_hessian = False
 
     def completion_check(self, gnorm):
         """Function to check if termination conditions have 
@@ -31,7 +32,7 @@ class Optimizer:
                 self.iterno, gnorm, self.gtol))
             return True
         return False
-
+        
     @overload
     def step(self, grad, params, line_search_fn, **kwargs):
         ...

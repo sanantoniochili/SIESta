@@ -4,7 +4,7 @@ from relax.optim.optimizer import Optimizer
 
 class GD(Optimizer):
 
-	def step(self, grad, gnorm, params, line_search_fn):
+	def step(self, grad, gnorm, params, line_search_fn, **kwargs):
 
 		# Calculate direction
 		self.direction = -grad
