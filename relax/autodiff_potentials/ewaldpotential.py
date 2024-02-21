@@ -25,7 +25,7 @@ class EwaldPotential:
 		return alpha
 
 
-	def gradient(self, energy: Tensor, scaled_pos: Tensor, N: int,
+	def get_gradient(self, energy: Tensor, scaled_pos: Tensor, N: int,
               vects: Tensor, strains: Tensor, volume: Tensor) -> Dict[Tensor, Tensor]:
 		if not volume:
 			volume = torch.det(vects)
@@ -46,7 +46,7 @@ class EwaldPotential:
 		return self.grad
 
 
-	def hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
+	def get_hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
              vects: Tensor, strains: Tensor, volume: Tensor) -> Tensor:
 		if not volume:
 			volume = torch.det(vects)
@@ -59,7 +59,6 @@ class EwaldPotential:
 				pos_grad[ioni][beta], 
 				(scaled_pos, strains),
 				grad_outputs=(torch.ones_like(pos_grad[ioni][beta])),
-				create_graph=True, 
 				retain_graph=True,
 				materialize_grads=True)
 			partial_pos_i_hessian = (
@@ -72,32 +71,36 @@ class EwaldPotential:
 				hessian[3*ioni+beta][3*N+straini] = partial_pos_i_hessian[1][straini]
    
 		strains_grad = grad['strains']
-		for straini in range(2):
-			for strainj in range(3):
-				partial_strain_i_hessian_scaled  = torch.autograd.grad(
-					strains_grad[straini][strainj], 
-					(scaled_pos, strains),
-					grad_outputs=(torch.ones_like(strains_grad[straini][strainj])),
-					create_graph=True, 
-					retain_graph=True,
-					materialize_grads=True)
-				partial_strain_i_hessian = (
-					torch.matmul(partial_strain_i_hessian_scaled[0], torch.inverse(vects)),
-					partial_strain_i_hessian_scaled[1]
-				)
-				for ionj, gamma in np.ndindex(N, 3):
-					hessian[3*N+3*straini+strainj][3*ionj+gamma] = \
-         				partial_strain_i_hessian[0][ionj][gamma]
-				for strainb in range(6):
-					hessian[3*N+3*straini+strainj][3*N+strainb] = \
-         				partial_strain_i_hessian[1][strainb]
+		for straini in range(6):
+			partial_strain_i_hessian_scaled  = torch.autograd.grad(
+				strains_grad[straini], 
+				(scaled_pos, strains),
+				grad_outputs=(torch.ones_like(strains_grad[straini])),
+				retain_graph=True,
+				materialize_grads=True)
+			partial_strain_i_hessian = (
+				torch.matmul(partial_strain_i_hessian_scaled[0], torch.inverse(vects)),
+				partial_strain_i_hessian_scaled[1]
+			)
+			for ionj, gamma in np.ndindex(N, 3):
+				hessian[3*N+straini][3*ionj+gamma] = \
+					partial_strain_i_hessian[0][ionj][gamma]
+			for strainb in range(6):
+				hessian[3*N+straini][3*N+strainb] = \
+					partial_strain_i_hessian[1][strainb]
 		
 		self.hessian = hessian
 		return self.hessian
 
-	def get_gnorm(grad: Dict[Tensor, Tensor], N: int):
+
+	def get_gnorm(grad: Dict[Tensor, Tensor]):
 		size, gnorm = 0, 0
 		for param in grad:
 			gnorm += torch.sum(grad[param]**2)
 			size += torch.numel(grad[param])
 		return math.sqrt(gnorm)/size
+
+	def get_Hnorm(hessian: Dict[Tensor, Tensor]):
+		hnorm = torch.sum(hessian**2)
+		size = torch.numel(hessian)
+		return math.sqrt(hnorm)/size

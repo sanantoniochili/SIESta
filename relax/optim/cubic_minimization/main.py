@@ -9,7 +9,7 @@ from .cubic_regular.convexopt import nesterovAGD
 
 class CubicMin(Optimizer):
     
-	def __init__(self, lnsearch, L=1, c=1e+3, inner_tol=None, 
+	def __init__(self, lnsearch, L=10, c=1e+3, inner_tol=None, 
               ftol=0.00001, gtol=0.001, tol=0.001, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
@@ -53,25 +53,28 @@ class CubicMin(Optimizer):
 		lnsearch = getattr(self.lnscheduler, line_search_fn)
 		stepsize = lnsearch(gnorm=gnorm, iteration=self.iterno)	
 
+		grad_vec = np.reshape(grad, newshape=(grad.shape[0]*grad.shape[1],))
 		res, L = None, self.init_L
-		while(res is None):
-			res, _ = cubic_minimization(grad, hessian, L, L2, self.kappa, 
+		while(True):
+			res, _ = cubic_minimization(grad_vec, gnorm, hessian, L, L2, self.kappa, 
 				nesterovAGD, stepsize, tol=self.inner_tol, debug=True, check=True)
+			if (res is not None):
+				break
 			# If the result is a failed binary search
 			# reduce L, otherwise use the L from input
-			L = L/2
+			L = L*2
 
 		# Calculate cubic regularization function for returned vectors
-		reg_value = cubic_regularization(grad, hessian, res[1])	
+		reg_value = cubic_regularization(grad_vec, hessian, res[1], L)	
 		# Initialize displacement
-		displacement = res[1] 
+		displacement = np.reshape(res[1], grad.shape)
 		# Check if there is a lowest eigenvector approximation
 		if res[2] is not None:
-			reg_value_min = res[0]/(2*L)*cubic_regularization(grad, hessian, res[2])
+			reg_value_min = res[0]/(2*L)*cubic_regularization(grad_vec, hessian, res[2], L)
 			# Keep the vector that gives smaller regular/tion value
 			if reg_value_min<reg_value:
 				reg_value = reg_value_min
-				displacement = res[2]
+				displacement = np.reshape(res[2], grad.shape)
 
 		# Add displacement
 		params = params + displacement

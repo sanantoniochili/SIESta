@@ -140,7 +140,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 	grad = np.zeros((N+3,3))
 	for name in potentials:
 		if hasattr(potentials[name], 'gradient'):
-			grad += np.array(potentials[name].gradient(
+			grad += np.array(potentials[name].get_gradient(
 			pos_array=pos, vects_array=vects, N_=N))
 	# Print numerical derivatives
 	if 'debug' in kwargs:
@@ -243,7 +243,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 		# Gradient of this point on PES
 		grad = np.zeros((N+3,3))
 		for name in potentials:
-			grad += np.array(potentials[name].gradient(atoms))
+			grad += np.array(potentials[name].get_gradient(atoms))
 		# Gradient norm
 		gnorm = get_gnorm(grad,N)
 		# Normalise gradient
