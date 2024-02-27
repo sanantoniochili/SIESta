@@ -11,7 +11,7 @@ def get_normals(vects: Tensor) -> Tensor:
 
 	return torch.reshape(normals, shape=(3,3))
 
-def inflated_cell_truncation(vects: Tensor, cutoff: float) -> Tensor:
+def inflated_cell_truncation(vects: Tensor, cutoff: float, device='cpu') -> Tensor:
     volume = torch.det(vects)
     normals = get_normals(vects)
 
@@ -48,5 +48,5 @@ def inflated_cell_truncation(vects: Tensor, cutoff: float) -> Tensor:
             shifts_np[count][2] = shift[2] - translate[2]
             count += 1
 
-    shifts = torch.from_numpy(shifts_np)
+    shifts = torch.from_numpy(shifts_np, device=device)
     return torch.matmul(shifts,vects)

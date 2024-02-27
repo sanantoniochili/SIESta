@@ -2,11 +2,8 @@ import os, torch
 import numpy as np
 import pickle
 
-from ase.io import read as aread
-from ase.cell import Cell
-from ase.geometry import wrap_positions, get_distances
+from ase.geometry import wrap_positions
 from ase.io import write
-from ase.geometry import cell_to_cellpar, cellpar_to_cell
 
 from relax.autodiff_potentials.coulomb.coulomb import Coulomb
 from relax.autodiff_potentials.buckingham.buckingham import Buckingham

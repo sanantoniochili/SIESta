@@ -47,7 +47,7 @@ class Coulomb(EwaldPotential):
 
 
 	def ewald_real_energy(self, pos: Tensor, vects: Tensor) -> Tensor:
-		shifts = self.get_shifts(vects, self.real_cut_off.item())
+		shifts = self.get_shifts(vects, self.real_cut_off.item(),  device=self.device)
 		if shifts == None:
 			shifts_no = 0
 		else:
@@ -83,7 +83,7 @@ class Coulomb(EwaldPotential):
 			volume = torch.det(vects)
 
 		rvects = self.get_reciprocal_vects(vects)
-		shifts = self.get_shifts(rvects, self.recip_cut_off.item())
+		shifts = self.get_shifts(rvects, self.recip_cut_off.item(),  device=self.device)
 		if shifts == None:
 			shifts_no = 0
 		else:
