@@ -4,15 +4,29 @@
 # Whitelist file
 !.gitignore
 
-# Whitelist code
+# Whitelist code & git files
 !*.py
+!.gitignore
+!.gitmodules
 
 # Whitelist folders and modules
-!pysrc/
-!cysrc/
-!pysrc/*
-!cysrc/*.p*
-!pysrc/*.py
+!relax/
+!relax/*.py
+
+!relax/autodiff_potentials/
+!relax/autodiff_potentials/*.py
+
+!relax/analytic_potentials
+!relax/analytic_potentials/*.p*
+!relax/analytic_potentials/coulomb/
+!relax/analytic_potentials/coulomb/*.p*
+!relax/analytic_potentials/buckingham/
+!relax/analytic_potentials/coubuckinghamlomb/*.p*
+
+!relax/optim/
+!relax/optim/*.py
+!relax/optim/cubic_minimization/
+!relax/optim/cubic_minimization/*
 
 # Whitelist README
 !README.txt
