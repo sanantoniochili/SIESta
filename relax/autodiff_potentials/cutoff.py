@@ -47,6 +47,8 @@ def inflated_cell_truncation(vects: Tensor, cutoff: float, device='cpu') -> Tens
             shifts_np[count][1] = shift[1] - translate[1]
             shifts_np[count][2] = shift[2] - translate[2]
             count += 1
-
-    shifts = torch.from_numpy(shifts_np, device=device)
+    if device=='cuda':
+        shifts = torch.from_numpy(shifts_np).cuda()
+    else:
+        shifts = torch.from_numpy(shifts_np)
     return torch.matmul(shifts,vects)
