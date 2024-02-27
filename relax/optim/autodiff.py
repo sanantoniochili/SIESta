@@ -31,13 +31,14 @@ def prettyprint(dict_):
 def init(charge_dict, atoms, outdir):
 
     """  INITIALISATION  """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     N 					= len(atoms.positions)
-    strains_vec			= torch.tensor([1.,0.,0.,1.,0.,1.], dtype=torch.float64, requires_grad=True)
-    strains				= torch.eye(3, dtype=torch.float64)
+    strains_vec			= torch.tensor([1.,0.,0.,1.,0.,1.], dtype=torch.float64, device=device, requires_grad=True)
+    strains				= torch.eye(3, dtype=torch.float64, device=device,)
     vects_np 			= np.asarray(atoms.get_cell())
-    vects 				= torch.tensor(vects_np, dtype=torch.float64, requires_grad=False)
+    vects 				= torch.tensor(vects_np, dtype=torch.float64, device=device, requires_grad=False)
     scaled_pos_np 		= np.asarray(atoms.get_scaled_positions())
-    scaled_pos 			= torch.tensor(scaled_pos_np, requires_grad=True)
+    scaled_pos 			= torch.tensor(scaled_pos_np, requires_grad=True, device=device)
     accuracy			= 0.000000000000000000001
     chemical_symbols	= np.array(atoms.get_chemical_symbols())
 
@@ -91,7 +92,7 @@ def init(charge_dict, atoms, outdir):
         'Total energy':initial_energy})
 
     return potentials, strains_vec, strains, \
-        vects, scaled_pos
+        vects, scaled_pos, device
 
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -139,6 +140,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     strains             = res[2]
     vects               = res[3]
     scaled_pos          = res[4]
+    device              = res[5]
     pos 				= torch.matmul(scaled_pos, vects)
     volume 				= torch.det(vects)
     N = len(pos)
@@ -157,8 +159,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
     # Gradient for current point on PES
     grad = {
-        'positions': torch.zeros((N, 3)),
-        'strains': torch.zeros((6,))
+        'positions': torch.zeros((N, 3), device=device),
+        'strains': torch.zeros((6,), device=device)
     }
     for name in potentials:
         grad_res = potentials[name].get_gradient(
@@ -175,7 +177,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     if optimizer.requires_hessian:
         for name in potentials:
             hess_res = potentials[name].get_hessian(
-                potentials[name].grad, scaled_pos, vects, strains_vec, volume)
+                potentials[name].grad, scaled_pos, vects, 
+                strains_vec, volume, device)
         hessian = torch.add(hessian, hess_res)
         secdrv = {'Hessian': hessian}
         
@@ -342,7 +345,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if optimizer.requires_hessian:
             for name in potentials:
                 hess_res = potentials[name].get_hessian(
-                    potentials[name].grad, scaled_pos, vects, strains_vec, volume)
+                    potentials[name].grad, scaled_pos, vects, 
+                    strains_vec, volume, device)
             hessian = torch.add(hessian, hess_res)
             secdrv = {'Hessian': hessian}
             if type(optimizer).__name__ == 'CubicMin':

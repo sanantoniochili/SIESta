@@ -47,12 +47,12 @@ class EwaldPotential:
 
 
 	def get_hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
-             vects: Tensor, strains: Tensor, volume: Tensor) -> Tensor:
+             vects: Tensor, strains: Tensor, volume: Tensor, device='cpu') -> Tensor:
 		if not volume:
 			volume = torch.det(vects)
 
 		N = len(scaled_pos)
-		hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)))
+		hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=device)
 		pos_grad = grad['positions']
 		for ioni, beta in np.ndindex((len(scaled_pos), 3)):
 			partial_pos_i_hessian_scaled  = torch.autograd.grad(
