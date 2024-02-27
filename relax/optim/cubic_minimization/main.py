@@ -11,7 +11,7 @@ pprint = PrettyPrint()
 
 class CubicMin(Optimizer):
     
-	def __init__(self, lnsearch, L=1, c=1, inner_tol=0.001, 
+	def __init__(self, lnsearch, L=1, c=1000, inner_tol=0.001, 
               ftol=0.00001, gtol=0.001, tol=1, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
