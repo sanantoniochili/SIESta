@@ -11,7 +11,7 @@ def get_normals(vects: Tensor) -> Tensor:
 
 	return torch.reshape(normals, shape=(3,3))
 
-def inflated_cell_truncation(vects: Tensor, cutoff: float, device='cpu') -> Tensor:
+def inflated_cell_truncation(vects: Tensor, cutoff: float) -> Tensor:
     volume = torch.det(vects)
     normals = get_normals(vects)
 
@@ -47,8 +47,6 @@ def inflated_cell_truncation(vects: Tensor, cutoff: float, device='cpu') -> Tens
             shifts_np[count][1] = shift[1] - translate[1]
             shifts_np[count][2] = shift[2] - translate[2]
             count += 1
-    if 'cuda' in device:
-        shifts = torch.from_numpy(shifts_np).cuda()
-    else:
-        shifts = torch.from_numpy(shifts_np)
+    device = vects.get_device()
+    shifts = torch.from_numpy(shifts_np).to(device)
     return torch.matmul(shifts,vects)
