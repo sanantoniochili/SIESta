@@ -9,3 +9,14 @@ def get_example1():
                                 [3.5, 3.5, 3.5]],
                 pbc=True)
     return atoms, name
+
+
+def get_example2():
+    name = "SrO"
+    atoms = Atoms(name, cell=[[4, 0.00, 0.00],	
+						[0.00, 5, 0.00],
+						[0.00, 0.00, 6]],
+                positions=[[1, 1, 1],
+                                [4.5, 4.5, 4.5]],
+                pbc=True)
+    return atoms, name

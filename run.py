@@ -79,7 +79,7 @@ if __name__ == "__main__":
 			structure = "structure_"+structure+"_"+str(atoms.symbols)
 	else:
 		from examples import *
-		atoms, structure = get_example1()
+		atoms, structure = get_example2()
 		print("Using custom Atoms object as input.")
 	
 	

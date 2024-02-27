@@ -345,6 +345,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                     potentials[name].grad, scaled_pos, vects, strains_vec, volume)
             hessian = torch.add(hessian, hess_res)
             secdrv = {'Hessian': hessian}
+            if type(optimizer).__name__ == 'CubicMin':
+                secdrv = {**secdrv, 'Cubic': optimizer.reg_value}
     
         # Gradient norm
         gnorm = EwaldPotential.get_gnorm(grad)
