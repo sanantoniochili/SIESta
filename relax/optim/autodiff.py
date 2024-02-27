@@ -300,16 +300,16 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         
         # Get new tensors
         strains_vec = torch.tensor(
-            strains_np[np.triu_indices(3)], requires_grad=True)
-        strains		= .5*torch.ones((3,3))+ .5*torch.eye(3, dtype=torch.float64)
+            strains_np[np.triu_indices(3)], device=device, requires_grad=True)
+        strains		= .5*torch.ones((3,3))+ .5*torch.eye(3, device=device, dtype=torch.float64)
         ind = torch.triu_indices(row=3, col=3, offset=0)
         strains[ind[0], ind[1]] = strains[ind[0], ind[1]]*strains_vec
         strains[1][0]       = strains[0][1]
         strains[2][1]       = strains[1][2]
         strains[2][0]       = strains[0][2]
         
-        vects 				= torch.tensor(vects_np, dtype=torch.float64, requires_grad=False)
-        scaled_pos 			= torch.tensor(pos_np @ np.linalg.inv(vects), requires_grad=True)
+        vects 				= torch.tensor(vects_np, dtype=torch.float64, device=device, requires_grad=False)
+        scaled_pos 			= torch.tensor(pos_np @ np.linalg.inv(vects), device=device,requires_grad=True)
         vects				= torch.matmul(vects, torch.transpose(strains, 0, 1))
         pos 				= torch.matmul(scaled_pos, vects)
         volume 				= torch.det(vects)
@@ -341,7 +341,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                 grad['strains'], grad_res['strains'])
             
         # Hessian for current point on PES
-        hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)))
+        hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=device)
         if optimizer.requires_hessian:
             for name in potentials:
                 hess_res = potentials[name].get_hessian(
