@@ -134,4 +134,5 @@ if __name__ == "__main__":
    			usr_flag=args.user, 
       		out=args.out if args.out else 1, 
 			debug=args.debug if args.debug else False,
+			iterno=70000
 		)

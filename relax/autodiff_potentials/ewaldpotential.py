@@ -7,6 +7,7 @@ from typing import Dict
 class EwaldPotential:
 	"""Generic class for defining Ewald sum potentials."""
 	def __init__(self) -> None:
+		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 		self.energy = torch.tensor(0.)
 		self.grad = {}
 
@@ -47,12 +48,12 @@ class EwaldPotential:
 
 
 	def get_hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
-             vects: Tensor, strains: Tensor, volume: Tensor, device='cpu') -> Tensor:
+             vects: Tensor, strains: Tensor, volume: Tensor) -> Tensor:
 		if not volume:
 			volume = torch.det(vects)
 
 		N = len(scaled_pos)
-		hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=device)
+		hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=self.device)
 		pos_grad = grad['positions']
 		for ioni, beta in np.ndindex((len(scaled_pos), 3)):
 			partial_pos_i_hessian_scaled  = torch.autograd.grad(
@@ -75,7 +76,7 @@ class EwaldPotential:
 			partial_strain_i_hessian_scaled  = torch.autograd.grad(
 				strains_grad[straini], 
 				(scaled_pos, strains),
-				grad_outputs=(torch.ones_like(strains_grad[straini])),
+				grad_outputs=(torch.ones_like(strains_grad[straini], device=self.device)),
 				retain_graph=True,
 				materialize_grads=True)
 			partial_strain_i_hessian = (
