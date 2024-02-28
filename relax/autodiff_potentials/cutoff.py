@@ -47,6 +47,8 @@ def inflated_cell_truncation(vects: Tensor, cutoff: float) -> Tensor:
             shifts_np[count][1] = shift[1] - translate[1]
             shifts_np[count][2] = shift[2] - translate[2]
             count += 1
-    device = vects.get_device()
-    shifts = torch.from_numpy(shifts_np).to(device)
-    return torch.matmul(shifts,vects)
+    
+    shifts = torch.from_numpy(shifts_np)
+    shifts= torch.tensor(shifts_np, dtype=torch.float64, device=vects.device)
+    
+    return torch.matmul(shifts, vects)
