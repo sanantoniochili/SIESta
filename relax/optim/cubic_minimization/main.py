@@ -23,7 +23,7 @@ class CubicMin(Optimizer):
 		self.reg_value = None
 		self.requires_hessian = True
   
-		self.debug = debug
+		self.debug = True
 		if debug:
 			pprint.print_emphasis('Running cubic min')
 			pprint.print_start({
