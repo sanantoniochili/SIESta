@@ -57,7 +57,7 @@ if __name__ == "__main__":
         help='Print numerical derivatives.')
 	parser.add_argument(
 		'-ln', metavar='--line_search',
-		nargs='*', required=True,
+		nargs='*', 
 		help='Type name of line search method and optional parameter value. One of: \n\
       			-gnorm_scheduled_bisection <order>\n\
 				-scheduled_bisection <schedule>\n\
@@ -111,13 +111,14 @@ if __name__ == "__main__":
 		line_search_fn = args.ln[0]
 	else:
 		line_search_fn = 'steady_step'
-	if len(args.ln)==2:
-		if args.ln[0] == 'gnorm_scheduled_bisection':
-			lnsearch.order = float(args.ln[1])
-		elif args.ln[0] == 'scheduled_bisection':
-			lnsearch.schedule = int(args.ln[1])
-		elif args.ln[0] == 'scheduled_exp':
-			lnsearch.exp = float(args.ln[1])
+	if args.ln:
+		if len(args.ln)==2:
+			if args.ln[0] == 'gnorm_scheduled_bisection':
+				lnsearch.order = float(args.ln[1])
+			elif args.ln[0] == 'scheduled_bisection':
+				lnsearch.schedule = int(args.ln[1])
+			elif args.ln[0] == 'scheduled_exp':
+				lnsearch.exp = float(args.ln[1])
   
 	optimizer = GD(lnsearch)
 	if args.m:

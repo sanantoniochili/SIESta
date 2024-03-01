@@ -1,6 +1,7 @@
 import os, torch
 import numpy as np
 import pickle
+import time
 
 from ase.geometry import wrap_positions
 from ase.io import write
@@ -131,6 +132,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     (int, dict[str, _])
 
     """
+    start_time = time.time()
+
     res                 = init(charge_dict, atoms, outdir)
     potentials          = res[0]
     strains_vec         = res[1]
@@ -145,12 +148,12 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     final_iteration = None
     history = []
 
-    if not os.path.isdir(outdir+"imgs"):
-        os.mkdir(outdir+"imgs")
+    # if not os.path.isdir(outdir+"imgs"):
+    #     os.mkdir(outdir+"imgs")
     if not os.path.isdir(outdir+"structs"):
         os.mkdir(outdir+"structs")
-    if not os.path.isdir(outdir+"imgs/"+outfile+"/"):
-        os.mkdir(outdir+"imgs/"+outfile)
+    # if not os.path.isdir(outdir+"imgs/"+outfile+"/"):
+        # os.mkdir(outdir+"imgs/"+outfile)
     if not os.path.isdir(outdir+"structs/"+outfile+"/"):
         os.mkdir(outdir+"structs/"+outfile)
 
@@ -191,7 +194,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
     # Keep info of this iteration
     iteration = {
-    'Gradient': grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
+    'Time': time.time()-start_time, 'Gradient': grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
     'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
     'Step': 0, 'Gnorm':gnorm, 'Energy':total_energy, **secdrv
     }
@@ -205,8 +208,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if optimizer.completion_check(gnorm):
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-                str(optimizer.iterno)+".png", atoms)
+            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                # str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -220,8 +223,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         elif (optimizer.iterno%out)==0:
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-                str(optimizer.iterno)+".png", atoms)
+            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                # str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -360,6 +363,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                                  newshape=(2, 3))
             
         iteration = {
+        'Time': time.time()-start_time,
         'Gradient':grad, 'Positions':atoms.positions.copy(), 
         'Strains':params[N:], 'Cell':np.array(atoms.get_cell()), 
         'Iter':optimizer.iterno, 'Method': history[-1], 
