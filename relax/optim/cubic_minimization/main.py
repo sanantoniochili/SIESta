@@ -51,7 +51,7 @@ class CubicMin(Optimizer):
 	def step(self, grad, gnorm, params, line_search_fn, hessian, L2, **kwargs):
    
 		# Get inner stepsize
-		inner_stepsize = 1e-5
+		inner_stepsize = 1e-3
 		if 'stepize' in kwargs:
 			inner_stepsize = kwargs['stepsize']
 
