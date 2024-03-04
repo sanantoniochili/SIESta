@@ -309,7 +309,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         strains[2][0]       = strains[0][2]
         
         vects 				= torch.tensor(vects_np, dtype=torch.float64, device=device, requires_grad=False)
-        scaled_pos 			= torch.tensor(pos_np @ np.linalg.inv(vects), device=device, requires_grad=True)
+        scaled_pos 			= torch.tensor(pos_np @ np.linalg.inv(vects_np), device=device, requires_grad=True)
         vects				= torch.matmul(vects, torch.transpose(strains, 0, 1))
         pos 				= torch.matmul(scaled_pos, vects)
         volume 				= torch.det(vects)
