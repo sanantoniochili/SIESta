@@ -258,8 +258,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         
         # Save grad to numpy
         grad_np = np.zeros((N+2, 3))
-        grad_np[:N] = grad['positions'].detach().numpy()
-        grad_np[N:] = np.reshape(grad['strains'].detach().numpy(),
+        grad_np[:N] = grad['positions'].cpu().detach().numpy()
+        grad_np[N:] = np.reshape(grad['strains'].cpu().detach().numpy(),
                                  newshape=(2, 3))
         
         # Normalise gradient    
@@ -271,7 +271,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         params = optimizer.step(
             grad_norm, 
             gnorm, params, line_search_fn, 
-            hessian=hessian.detach().numpy(), 
+            hessian=hessian.cpu().detach().numpy(), 
             L2=10, debug=True)
         
         # Make a method history
@@ -358,8 +358,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
         # Save grad to numpy
         grad_np = np.zeros((N+2, 3))
-        grad_np[:N] = grad['positions'].detach().numpy()
-        grad_np[N:] = np.reshape(grad['strains'].detach().numpy(),
+        grad_np[:N] = grad['positions'].cpu().detach().numpy()
+        grad_np[N:] = np.reshape(grad['strains'].cpu().detach().numpy(),
                                  newshape=(2, 3))
             
         iteration = {
