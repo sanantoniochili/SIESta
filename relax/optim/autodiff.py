@@ -301,7 +301,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         # Get new tensors
         strains_vec = torch.tensor(
             strains_np[np.triu_indices(3)], device=device, requires_grad=True)
-        strains		= .5*torch.ones((3,3))+ .5*torch.eye(3, device=device, dtype=torch.float64)
+        strains		= .5*torch.ones((3,3), device=device)+ .5*torch.eye(3, device=device, dtype=torch.float64)
         ind = torch.triu_indices(row=3, col=3, offset=0)
         strains[ind[0], ind[1]] = strains[ind[0], ind[1]]*strains_vec
         strains[1][0]       = strains[0][1]
