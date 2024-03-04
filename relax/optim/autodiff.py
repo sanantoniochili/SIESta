@@ -208,8 +208,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if optimizer.completion_check(gnorm):
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-                # str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -223,8 +223,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         elif (optimizer.iterno%out)==0:
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-                # str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -244,8 +244,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             
         # Tensors to numpy
         params = np.ones((N+2,3))
-        params[:N] = pos.detach().numpy().copy()
-        vects_np = vects.detach().numpy().copy()
+        params[:N] = pos.cpu().detach().numpy().copy()
+        vects_np = vects.cpu().detach().numpy().copy()
         
         # Delete the tensors
         for name in potentials:
@@ -272,7 +272,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             grad_norm, 
             gnorm, params, line_search_fn, 
             hessian=hessian.detach().numpy(), 
-            L2=10)
+            L2=10, debug=True)
         
         # Make a method history
         history.append(type(optimizer).__name__)
