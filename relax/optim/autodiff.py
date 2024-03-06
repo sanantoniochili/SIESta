@@ -148,12 +148,12 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     final_iteration = None
     history = []
 
-    # if not os.path.isdir(outdir+"imgs"):
-    #     os.mkdir(outdir+"imgs")
+    if not os.path.isdir(outdir+"imgs"):
+        os.mkdir(outdir+"imgs")
     if not os.path.isdir(outdir+"structs"):
         os.mkdir(outdir+"structs")
-    # if not os.path.isdir(outdir+"imgs/"+outfile+"/"):
-        # os.mkdir(outdir+"imgs/"+outfile)
+    if not os.path.isdir(outdir+"imgs/"+outfile+"/"):
+        os.mkdir(outdir+"imgs/"+outfile)
     if not os.path.isdir(outdir+"structs/"+outfile+"/"):
         os.mkdir(outdir+"structs/"+outfile)
 
@@ -208,8 +208,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if optimizer.completion_check(gnorm):
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-            #     str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -223,8 +223,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         elif (optimizer.iterno%out)==0:
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-            #     str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -266,14 +266,24 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         grad_norm = np.zeros((N+2, 3))    
         if gnorm>0:
             grad_norm = grad_np/gnorm
+        # Normalise hessian    
+        hess_norm = np.zeros((3*N+6, 3*N+6))  
+        hnorm = EwaldPotential.get_Hnorm(hessian)  
+        if hnorm>0:
+            hess_norm = hessian.cpu().detach().numpy()/hnorm
+
+        start_time = time.time()  ####### NEEDS TO GO
 
         ''' 1 --- Apply an optimization step --- 1 '''
         params = optimizer.step(
-            grad_norm, 
-            gnorm, params, line_search_fn, 
-            hessian=hessian.cpu().detach().numpy(), 
-            L2=10, debug=True)
+            grad=grad_norm, gnorm=gnorm, params=params, 
+            line_search_fn=line_search_fn, 
+            hessian=hess_norm,
+            debug=False)
         
+        print('OPT STEP',time.time()-start_time) 
+        start_time = time.time() ####### NEEDS TO GO
+
         # Make a method history
         history.append(type(optimizer).__name__)
 
@@ -293,6 +303,9 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         # Apply strains to all unit cell vectors as a 3x3 tensor
         pos_np = pos_temp @ strains_np.T
         vects_np = vects_np @ strains_np.T
+
+        print('PARAM UPDATE',time.time()-start_time)
+        start_time = time.time() ####### NEEDS TO GO
 
         # Calculate new point on energy surface
         atoms.positions = pos_np
@@ -325,6 +338,9 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         for name in potentials:
             total_energy += potentials[name].all_energy(pos, vects, volume).item()
 
+        print('ENERGY CALC',time.time()-start_time)
+        start_time = time.time() ####### NEEDS TO GO
+
         ''' 4 --- Re-calculate derivatives --- 4 '''
         # Gradient for current point on PES
         grad = {
@@ -340,6 +356,9 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             grad['strains'] = torch.add(
                 grad['strains'], grad_res['strains'])
             
+        print('GRAD CALC',time.time()-start_time)
+        start_time = time.time() ####### NEEDS TO GO
+            
         # Hessian for current point on PES
         hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=device)
         if optimizer.requires_hessian:
@@ -351,6 +370,9 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             secdrv = {'Hessian': hessian}
             if type(optimizer).__name__ == 'CubicMin':
                 secdrv = {**secdrv, 'Cubic': optimizer.reg_value}
+
+        print('HESSIAN CALC',time.time()-start_time)
+        start_time = time.time() ####### NEEDS TO GO
     
         # Gradient norm
         gnorm = EwaldPotential.get_gnorm(grad)

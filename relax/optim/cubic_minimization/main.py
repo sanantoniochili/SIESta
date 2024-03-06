@@ -1,18 +1,18 @@
-import math
+import math, torch
 import numpy as np
 from ase.geometry import wrap_positions
 from relax.optim.analytic import *
 from relax.optim.optimizer import Optimizer
 from .cubic_regular.cubicmin import cubic_regularization, cubic_minimization
-from .cubic_regular.convexopt import nesterovAGD
+from .cubic_regular.convexopt import *
 from .cubic_regular.prettyprint import PrettyPrint 
 
 pprint = PrettyPrint()
 
 class CubicMin(Optimizer):
     
-	def __init__(self, lnsearch, L=1, c=1000, inner_tol=0.001, 
-              ftol=0.00001, gtol=0.001, tol=1, debug=False):
+	def __init__(self, lnsearch, L=1, c=1e+2, inner_tol=1e-3, 
+              ftol=1e-5, gtol=1e-3, tol=1e-3, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
 		self.init_L = L
@@ -48,7 +48,7 @@ class CubicMin(Optimizer):
 		return False
  
 
-	def step(self, grad, gnorm, params, line_search_fn, hessian, L2, **kwargs):
+	def step(self, grad, gnorm, hessian, params, line_search_fn, **kwargs):
    
 		# Get inner stepsize
 		inner_stepsize = 1e-3
@@ -57,15 +57,22 @@ class CubicMin(Optimizer):
 
 		grad_vec = np.reshape(grad, newshape=(grad.shape[0]*grad.shape[1],))
 		res, L = None, self.init_L
-		while(True):
-			res, _ = cubic_minimization(grad_vec, gnorm, hessian, L, L2, self.kappa, 
-				nesterovAGD, inner_stepsize, tol=self.inner_tol, 
-    			debug=self.debug, check=True)
-			if (res is not None):
-				break
-			# If the result is None try again with larger 
-			# second order smooth constant
-			L = L*2
+
+		initial_vector = torch.zeros(hessian.shape[0])
+		optimizer = torch.optim.SGD([initial_vector], lr=inner_stepsize)
+		optargs = {'params': [initial_vector], 
+					'lr': inner_stepsize, 
+					'weight_decay': 0,
+					'momentum': 0.9,
+					'nesterov': True, 
+					'maximize': False,
+					'foreach': None,
+					'dampening': 0.9,
+					'differentiable': False}
+		res, _ = cubic_minimization(grad=grad_vec, gnorm=gnorm, 
+			hessian=hessian, L=L, kappa=self.kappa, 
+			optimizer=optimizer, tol=self.inner_tol, 
+			debug=self.debug, check=True, **optargs)
 
 		# Calculate cubic regularization function for returned vectors
 		reg_value = cubic_regularization(grad_vec, hessian, res[1], L)	
