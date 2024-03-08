@@ -35,9 +35,7 @@ class CubicMin(Optimizer):
 
 	
 	def completion_check(self, gnorm):
-		if super().completion_check(gnorm):
-			return True
-		if self.reg_value is not None:
+		if super().completion_check(gnorm) & (self.reg_value is not None):
 			if self.reg_value > - self.tol**(3/2)/(self.c*math.sqrt(self.init_L)):
 				if self.debug:
 					pprint.print_result({'final': self.reg_value}, 
@@ -48,7 +46,8 @@ class CubicMin(Optimizer):
 		return False
  
 
-	def step(self, grad, gnorm, hessian, params, line_search_fn, **kwargs):
+	def step(self, grad, gnorm, hessian, hnorm, 
+		  params, line_search_fn, **kwargs):
    
 		# Get inner stepsize
 		inner_stepsize = 1e-3
@@ -63,14 +62,17 @@ class CubicMin(Optimizer):
 		optargs = {'params': [initial_vector], 
 					'lr': inner_stepsize, 
 					'weight_decay': 0,
-					'momentum': 0.9,
+					'momentum': 0.5,
 					'nesterov': True, 
 					'maximize': False,
 					'foreach': None,
-					'dampening': 0.9,
-					'differentiable': False}
+					'dampening': 0.5,
+					'differentiable': False,
+					'eps': 1e-8,
+					'alpha': 0.99,
+					'centered': True}
 		res, _ = cubic_minimization(grad=grad_vec, gnorm=gnorm, 
-			hessian=hessian, L=L, kappa=self.kappa, 
+			hessian=hessian, hnorm=hnorm, L=L, kappa=self.kappa, 
 			optimizer=optimizer, tol=self.inner_tol, 
 			debug=self.debug, check=True, **optargs)
 
@@ -94,9 +96,11 @@ class CubicMin(Optimizer):
 		params = params + stepsize*displacement
 		
 		if self.debug:
-			pprint.print_result({'current': self.reg_value}, 
-						tol=- self.tol**(3/2)/(self.c*math.sqrt(self.init_L)),
-						iterno=self.iterno)
+			pprint.print_result({
+					'current regularization': self.reg_value,
+					'current gnorm': gnorm}, 
+					tol=- self.tol**(3/2)/(self.c*math.sqrt(self.init_L)),
+					iterno=self.iterno)
 			pprint.print_comparison({
 				'new cubic regular/tion': reg_value})
 

@@ -39,6 +39,7 @@ def init(charge_dict, atoms, outdir):
     scaled_pos 			= torch.tensor(scaled_pos_np, requires_grad=True, device=device)
     accuracy			= 0.000000000000000000001
     chemical_symbols	= np.array(atoms.get_chemical_symbols())
+    torch.random.manual_seed(0)
 
     # Apply strains
     ind = torch.triu_indices(row=3, col=3, offset=0)
@@ -267,10 +268,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if gnorm>0:
             grad_norm = grad_np/gnorm
         # Normalise hessian    
-        hess_norm = np.zeros((3*N+6, 3*N+6))  
         hnorm = EwaldPotential.get_Hnorm(hessian)  
-        if hnorm>0:
-            hess_norm = hessian.cpu().detach().numpy()/hnorm
+        hess_norm = hessian/hnorm
 
         start_time = time.time()  ####### NEEDS TO GO
 
@@ -278,7 +277,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         params = optimizer.step(
             grad=grad_norm, gnorm=gnorm, params=params, 
             line_search_fn=line_search_fn, 
-            hessian=hess_norm,
+            hessian=hess_norm.cpu().detach().numpy(), hnorm=hnorm,
             debug=False)
         
         print('OPT STEP',time.time()-start_time) 
