@@ -98,10 +98,14 @@ class CubicMin(Optimizer):
 			self.history = []
 
 		# Run fast cubic minimization
-		res, _ = cubic_minimization(grad=grad_vec, gnorm=gnorm, 
+		res, _ = cubic_minimization(
+			grad=grad_vec, gnorm=gnorm, 
 			hessian=hessian, hnorm=hnorm, 
-			L= self.cparams['L'], kappa=self.cparams['kappa'],
-			optimizer=optimizer, tol=self.cparams['inner_tol'], 
+			optimizer=optimizer, 
+			L= self.cparams['L'], 
+			B=self.cparams['B'],
+			kappa=self.cparams['kappa'], 
+			tol=self.cparams['inner_tol'], 
 			debug=self.debug, check=True, rng=kwargs['rng'], 
 			**self.optargs)
 
@@ -162,13 +166,14 @@ class CubicMin(Optimizer):
 			X.append(params)
 			y.append(0)
 
-		cb = CubicFit(L=10, kappa=30, lr=1, momentum=0, dampening=0, rng=rng)
+		cb = CubicFit(L=10, B=10, kappa=30, lr=1, momentum=0, dampening=0, rng=rng)
 		param_dist = {
 			"L": [1]+[x*10 for x in range(1, 10)], 
 			"kappa": rng.randint(low=30, high=90, size=(10,)), 
 			"lr": [1e-5, 1e-3, 1e-2, 1e-1, 1], 
 			"momentum": [x/10 for x in range(10)], 
 			"dampening": [x/10 for x in range(10)],
+			"B": [1]+[x*10 for x in range(1, 10)]
 		}
 		rsh = HalvingRandomSearchCV(
 			estimator=cb, param_distributions=param_dist, 

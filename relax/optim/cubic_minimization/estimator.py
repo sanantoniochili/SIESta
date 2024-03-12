@@ -7,13 +7,14 @@ from .cubic_regular.cubicmin import cubic_regularization, cubic_minimization
 import torch, math
 
 class CubicFit(BaseEstimator, RegressorMixin):
-    def __init__(self, L, kappa, lr, momentum, dampening, rng):
+    def __init__(self, L, B, kappa, lr, momentum, dampening, rng):
         self.L = L
         self.kappa = kappa
         self.lr = lr
         self.momentum = momentum
         self.dampening = dampening
         self.rng = rng
+        self.B = B
     def fit(self, params, target):
         self.X_ = params
         self.y_ = target
@@ -46,7 +47,7 @@ class CubicFit(BaseEstimator, RegressorMixin):
                         'differentiable': False}
 
             res, _ = cubic_minimization(grad=grad_vec, gnorm=gnorm, 
-                hessian=hessian, hnorm=hnorm, L=self.L, kappa=self.kappa, 
+                hessian=hessian, hnorm=hnorm, L=self.L, B=self.B, kappa=self.kappa, 
                 optimizer=optimizer, tol=0.001, max_iterno=1000, rng=self.rng,
                 check=True, **optargs)
 
