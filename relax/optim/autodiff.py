@@ -25,7 +25,8 @@ def prettyprint(dict_):
 			print("\n", key)
 			print(value)
 	print(words.center(COLUMNS,"-"))
- 
+
+
 def init(charge_dict, atoms, outdir):
 
     """  INITIALISATION  """
@@ -39,7 +40,7 @@ def init(charge_dict, atoms, outdir):
     scaled_pos 			= torch.tensor(scaled_pos_np, requires_grad=True, device=device)
     accuracy			= 0.000000000000000000001
     chemical_symbols	= np.array(atoms.get_chemical_symbols())
-    torch.random.manual_seed(0)
+    rng                 = np.random.RandomState(0)
 
     # Apply strains
     ind = torch.triu_indices(row=3, col=3, offset=0)
@@ -91,7 +92,7 @@ def init(charge_dict, atoms, outdir):
         'Total energy':initial_energy})
 
     return potentials, strains_vec, strains, \
-        vects, scaled_pos, device
+        vects, scaled_pos, device, rng
 
 
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
@@ -142,6 +143,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     vects               = res[3]
     scaled_pos          = res[4]
     device              = res[5]
+    rng                 = res[6]
     pos 				= torch.matmul(scaled_pos, vects)
     volume 				= torch.det(vects)
     N = len(pos)
@@ -195,7 +197,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
     # Keep info of this iteration
     iteration = {
-    'Time': time.time()-start_time, 'Gradient': grad, 'Positions':pos, 'Strains':np.ones((3,3)), 
+    'Time': time.time()-start_time, 'Gradient': grad, 'Positions':pos, 'Strains':np.ones((6,)), 
     'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
     'Step': 0, 'Gnorm':gnorm, 'Energy':total_energy, **secdrv
     }
@@ -278,7 +280,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             grad=grad_norm, gnorm=gnorm, params=params, 
             line_search_fn=line_search_fn, 
             hessian=hess_norm.cpu().detach().numpy(), hnorm=hnorm,
-            debug=False)
+            debug=False, rng=rng)
         
         print('OPT STEP',time.time()-start_time) 
         start_time = time.time() ####### NEEDS TO GO
