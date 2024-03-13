@@ -60,5 +60,9 @@ class CubicFit(BaseEstimator, RegressorMixin):
                 # Keep the vector that gives smaller regular/tion value
                 if reg_value_min<reg_value:
                     reg_value = reg_value_min
-            y_pred.append([-math.log10(abs(reg_value))])
+            y_pred.append(reg_value)
         return y_pred
+
+def max_raw_log_error(y_true, y_pred):
+    return np.max(np.log10(np.abs(y_pred)))
+

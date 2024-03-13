@@ -8,17 +8,19 @@ from .cubic_regular.convexopt import *
 from .cubic_regular.prettyprint import PrettyPrint 
 
 from .estimator import CubicFit
+from .estimator import max_raw_log_error
+from sklearn.metrics import make_scorer
+
 # explicitly require this experimental feature
 from sklearn.experimental import enable_halving_search_cv # noqa
 # now you can import normally from model_selection
 from sklearn.model_selection import HalvingRandomSearchCV
-import scipy
 
 pprint = PrettyPrint()
 
 class CubicMin(Optimizer):
     
-	def __init__(self, lnsearch, L=1, c=1e+2, inner_tol=1e-3, 
+	def __init__(self, lnsearch, L=10, c=1e+2, inner_tol=1e-3, 
               ftol=1e-5, gtol=1e-3, tol=1e-3, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
@@ -30,16 +32,17 @@ class CubicMin(Optimizer):
 			'L': L,
 			'c': c,
 			'tol': tol,
-			'inner_tol': inner_tol
+			'inner_tol': inner_tol,
+			'B': None
 		}
 		self.optargs = {'params': None, 
 					'lr': 1e-3, 
 					'weight_decay': 0,
-					'momentum': 0.5,
+					'momentum': 0,
 					'nesterov': True, 
 					'maximize': False,
 					'foreach': None,
-					'dampening': 0.5,
+					'dampening': 0,
 					'differentiable': False,
 					'eps': 1e-8,
 					'alpha': 0.99,
@@ -87,15 +90,15 @@ class CubicMin(Optimizer):
 		initial_vector = torch.zeros(hessian.shape[0])
 		optimizer = torch.optim.SGD([initial_vector], lr=self.optargs['lr'])
 		
-		# Try hyperparameter optimization
-		if len(self.history) > 9:
-			optargs = self.taster_step(kwargs['rng'])
-			for key, value in optargs.items():
-				if key in self.optargs.keys():
-					self.optargs[key] = value
-				elif key in self.cparams.keys():
-					self.cparams[key] = value
-			self.history = []
+		# # Try hyperparameter optimization
+		# if len(self.history) > 4:
+		# 	optargs = self.taster_step(kwargs['rng'])
+		# 	for key, value in optargs.items():
+		# 		if key in self.optargs.keys():
+		# 			self.optargs[key] = value
+		# 		elif key in self.cparams.keys():
+		# 			self.cparams[key] = value
+		# 	self.history = []
 
 		# Run fast cubic minimization
 		res, _ = cubic_minimization(
@@ -148,7 +151,6 @@ class CubicMin(Optimizer):
 
 		return params
 
-
 	def taster_step(self, rng):
 
 		X, y = [], []
@@ -177,8 +179,8 @@ class CubicMin(Optimizer):
 		}
 		rsh = HalvingRandomSearchCV(
 			estimator=cb, param_distributions=param_dist, 
-			random_state=rng, scoring='max_error',
-			aggressive_elimination=True
+			random_state=rng, scoring=make_scorer(max_raw_log_error),
+			cv=2
 		)
 		rsh.fit(X, y)
 		return rsh.best_params_
