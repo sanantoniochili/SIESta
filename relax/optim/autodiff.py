@@ -300,9 +300,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         pos_np = pos_temp @ strains_np.T
         vects_np = vects_np @ strains_np.T
 
-        print('PARAM UPDATE',time.time()-start_time)
-        start_time = time.time() ####### NEEDS TO GO
-
         # Calculate new point on energy surface
         atoms.positions = pos_np
         atoms.set_cell(vects_np)
@@ -348,9 +345,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                 grad['positions'], grad_res['positions'])
             grad['strains'] = torch.add(
                 grad['strains'], grad_res['strains'])
-            
-        print('GRAD CALC',time.time()-start_time)
-        start_time = time.time() ####### NEEDS TO GO
             
         # Hessian for current point on PES
         hessian = torch.tensor(np.zeros((3*N+6, 3*N+6)), device=device)
