@@ -7,14 +7,14 @@ from .cubic_regular.cubicmin import cubic_regularization, cubic_minimization
 from .cubic_regular.convexopt import *
 from .cubic_regular.prettyprint import PrettyPrint 
 
-from .estimator import CubicFit
-from .estimator import max_raw_log_error
-from sklearn.metrics import make_scorer
+# from .estimator import CubicFit
+# from .estimator import max_raw_log_error
+# from sklearn.metrics import make_scorer
 
-# explicitly require this experimental feature
-from sklearn.experimental import enable_halving_search_cv # noqa
-# now you can import normally from model_selection
-from sklearn.model_selection import HalvingRandomSearchCV
+# # explicitly require this experimental feature
+# from sklearn.experimental import enable_halving_search_cv # noqa
+# # now you can import normally from model_selection
+# from sklearn.model_selection import HalvingRandomSearchCV
 
 pprint = PrettyPrint()
 
@@ -150,37 +150,3 @@ class CubicMin(Optimizer):
 		self.iterno += 1
 
 		return params
-
-	def taster_step(self, rng):
-
-		X, y = [], []
-		for group in self.history:
-			grad = group['grad']
-			gnorm = group['gnorm']
-			gnorm_mat = np.repeat(gnorm, grad.shape)
-
-			hessian = group['hessian']
-			hnorm = group['hnorm']
-			hnorm_mat = np.repeat(hnorm, grad.shape)
-
-			params = np.asarray([grad, gnorm_mat, hnorm_mat])
-			params = np.concatenate((params, hessian))
-			X.append(params)
-			y.append(0)
-
-		cb = CubicFit(L=10, B=10, kappa=30, lr=1, momentum=0, dampening=0, rng=rng)
-		param_dist = {
-			"L": [1]+[x*10 for x in range(1, 10)], 
-			"kappa": rng.randint(low=30, high=90, size=(10,)), 
-			"lr": [1e-5, 1e-3, 1e-2, 1e-1, 1], 
-			"momentum": [x/10 for x in range(10)], 
-			"dampening": [x/10 for x in range(10)],
-			"B": [1]+[x*10 for x in range(1, 10)]
-		}
-		rsh = HalvingRandomSearchCV(
-			estimator=cb, param_distributions=param_dist, 
-			random_state=rng, scoring=make_scorer(max_raw_log_error),
-			cv=2
-		)
-		rsh.fit(X, y)
-		return rsh.best_params_

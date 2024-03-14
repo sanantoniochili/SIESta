@@ -40,7 +40,7 @@ def init(charge_dict, atoms, outdir):
     scaled_pos 			= torch.tensor(scaled_pos_np, requires_grad=True, device=device)
     accuracy			= 0.000000000000000000001
     chemical_symbols	= np.array(atoms.get_chemical_symbols())
-    rng                 = np.random.RandomState(0)
+    rng                 = np.random.default_rng(0)
 
     # Apply strains
     ind = torch.triu_indices(row=3, col=3, offset=0)
@@ -273,17 +273,12 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         hnorm = EwaldPotential.get_Hnorm(hessian)  
         hess_norm = hessian/hnorm
 
-        start_time = time.time()  ####### NEEDS TO GO
-
         ''' 1 --- Apply an optimization step --- 1 '''
         params = optimizer.step(
             grad=grad_norm, gnorm=gnorm, params=params, 
             line_search_fn=line_search_fn, 
             hessian=hess_norm.cpu().detach().numpy(), hnorm=hnorm,
             debug=False, rng=rng)
-        
-        print('OPT STEP',time.time()-start_time) 
-        start_time = time.time() ####### NEEDS TO GO
 
         # Make a method history
         history.append(type(optimizer).__name__)
@@ -339,9 +334,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         for name in potentials:
             total_energy += potentials[name].all_energy(pos, vects, volume).item()
 
-        print('ENERGY CALC',time.time()-start_time)
-        start_time = time.time() ####### NEEDS TO GO
-
         ''' 4 --- Re-calculate derivatives --- 4 '''
         # Gradient for current point on PES
         grad = {
@@ -371,9 +363,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             secdrv = {'Hessian': hessian}
             if type(optimizer).__name__ == 'CubicMin':
                 secdrv = {**secdrv, 'Cubic': optimizer.reg_value}
-
-        print('HESSIAN CALC',time.time()-start_time)
-        start_time = time.time() ####### NEEDS TO GO
     
         # Gradient norm
         gnorm = EwaldPotential.get_gnorm(grad)
