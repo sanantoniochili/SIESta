@@ -4,9 +4,11 @@ class LnSearch:
 	def __init__(self, min_step=1e-5, max_step=1e-3, **kwargs) -> None:
 		
 		self.max_step=max_step
-		self.curr_step = max_step
+		self.curr_step=max_step
 		self.min_step=min_step
 
+		if 'order' in kwargs:
+			self.order=kwargs['order']
 		if 'schedule' in kwargs:
 			self.schedule=kwargs['schedule']
 		if 'exponent' in kwargs:
