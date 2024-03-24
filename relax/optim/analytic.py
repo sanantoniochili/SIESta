@@ -173,8 +173,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 		if optimizer.completion_check(gnorm):
 			print("Writing result to file",
 			outfile+"_"+str(optimizer.iterno),"...")
-			write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-				str(optimizer.iterno)+".png", atoms)
+			# write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+			# 	str(optimizer.iterno)+".png", atoms)
 			write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
 				str(optimizer.iterno)+".cif", atoms)
 			dict_file = open(
@@ -188,8 +188,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 		elif (optimizer.iterno%out)==0:
 			print("Writing result to file",
 			outfile+"_"+str(optimizer.iterno),"...")
-			write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-				str(optimizer.iterno)+".png", atoms)
+			# write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+			# 	str(optimizer.iterno)+".png", atoms)
 			write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
 				str(optimizer.iterno)+".cif", atoms)
 			dict_file = open(
@@ -218,7 +218,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 		''' 2 --- Update parameters --- 2 '''
 		# Make sure ions stay in unit cell
 		pos_temp = wrap_positions(params[:N], vects)
-        # Update strains
+		# Update strains
 		strains = (params[N:]-1)+np.identity(3)
 	
 		# Apply strains to all unit cell vectors
