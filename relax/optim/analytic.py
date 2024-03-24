@@ -199,7 +199,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 				{**iteration, 'Optimised': False}, 
 				dict_file)
 			dict_file.close()
-		elif (('iterno' in kwargs) & (kwargs['iterno'] >= optimizer.iterno)):
+		elif (('iterno' in kwargs) & (kwargs['iterno'] <= optimizer.iterno)):
 			break
  
 		if usr_flag:
