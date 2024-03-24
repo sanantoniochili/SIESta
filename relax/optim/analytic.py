@@ -209,7 +209,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
   
 		''' 1 --- Apply an optimization step --- 1 '''
 		params = np.concatenate((pos, np.ones((3,3))), axis=0)
-		params = optimizer.step(grad_norm, gnorm, params, line_search_fn)
+		params = optimizer.step(grad_norm, gnorm, params, line_search_fn,
+						  atoms=atoms, potentials=potentials)
 
 		# Make a method history
 		history.append(type(optimizer).__name__)

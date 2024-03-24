@@ -7,15 +7,6 @@ from .cubic_regular.cubicmin import cubic_regularization, cubic_minimization
 from .cubic_regular.convexopt import *
 from .cubic_regular.prettyprint import PrettyPrint 
 
-# from .estimator import CubicFit
-# from .estimator import max_raw_log_error
-# from sklearn.metrics import make_scorer
-
-# # explicitly require this experimental feature
-# from sklearn.experimental import enable_halving_search_cv # noqa
-# # now you can import normally from model_selection
-# from sklearn.model_selection import HalvingRandomSearchCV
-
 pprint = PrettyPrint()
 
 class CubicMin(Optimizer):

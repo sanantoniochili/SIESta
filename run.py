@@ -9,6 +9,7 @@ from ase.io import write as awrite
 
 from relax.optim.gradient_descent import GD
 from relax.optim.conjugate_gradient import *
+from relax.optim.lbfgs import *
 from relax.optim.cubic_minimization.main import *
 from relax.optim.linmin import *
 
