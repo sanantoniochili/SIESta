@@ -6,8 +6,8 @@ import time
 from ase.geometry import wrap_positions
 from ase.io import write
 
-from relax.autodiff_potentials.coulomb.coulomb import Coulomb
-from relax.autodiff_potentials.buckingham.buckingham import Buckingham
+from relax.autodiff_potentials.coulomb import Coulomb
+from relax.autodiff_potentials.buckingham import Buckingham
 from relax.autodiff_potentials.cutoff import inflated_cell_truncation
 from relax.autodiff_potentials.ewaldpotential import EwaldPotential
 from relax.finite_differences import finite_diff_grad

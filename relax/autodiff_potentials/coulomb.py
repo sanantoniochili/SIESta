@@ -6,8 +6,8 @@ import math
 import numpy.typing as npt
 from typing import Dict, Tuple
 
-from ..ewaldpotential import *
-from ..cutoff import *
+from .ewaldpotential import *
+from .cutoff import *
 
 class Coulomb(EwaldPotential):
 

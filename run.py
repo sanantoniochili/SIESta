@@ -33,8 +33,8 @@ if __name__ == "__main__":
 		'-i', metavar='--input', type=str,
 		help='.cif file to read')
 	parser.add_argument(
-		'-r', '--relax', action='store_true',
-		help='Perform structural relaxation')
+		'-r', '--relax', type=int,
+		help='Perform structural relaxation for given iterations')
 	parser.add_argument(
 		'-u', '--user', action='store_true',
 		help='Wait for user input after every iteration')
@@ -125,16 +125,19 @@ if __name__ == "__main__":
 	if args.m:
 		optimizer = globals()[args.m](lnsearch)	
 	
-	if args.relax:	
-		repeat(
-			atoms=atoms, 
-			outdir=outdir,
-			outfile=structure,
-			charge_dict=charge_dict,
-			optimizer=optimizer, 
-			line_search_fn=line_search_fn,
-   			usr_flag=args.user, 
-      		out=args.out if args.out else 1, 
-			debug=args.debug if args.debug else False,
-			iterno=70000
-		)
+	iterno = 0
+	if args.relax is not None:
+		iterno = args.relax
+		
+	repeat(
+		atoms=atoms, 
+		outdir=outdir,
+		outfile=structure,
+		charge_dict=charge_dict,
+		optimizer=optimizer, 
+		line_search_fn=line_search_fn,
+		usr_flag=args.user, 
+		out=args.out if args.out else 1, 
+		debug=args.debug if args.debug else False,
+		iterno=iterno
+	)
