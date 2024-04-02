@@ -19,12 +19,10 @@ class EwaldPotential:
 		rvects = torch.cat((rvect1, rvect2, rvect3))
 		return torch.reshape(rvects, shape=(3,3))
 
-
 	def get_alpha(self, N: float, volume: Tensor) -> Tensor:
 		accuracy = N**(1/6) * math.sqrt(pi)
 		alpha = torch.div(accuracy, torch.pow(volume, 1/3))
 		return alpha
-
 
 	def get_gradient(self, energy: Tensor, scaled_pos: Tensor, N: int,
               vects: Tensor, strains: Tensor, volume: Tensor) -> Dict[Tensor, Tensor]:
@@ -45,7 +43,6 @@ class EwaldPotential:
         }
 
 		return self.grad
-
 
 	def get_hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 
              vects: Tensor, strains: Tensor, volume: Tensor) -> Tensor:
@@ -70,7 +67,7 @@ class EwaldPotential:
 				hessian[3*ioni+beta][3*ionj+gamma] = partial_pos_i_hessian[0][ionj][gamma]
 			for straini in range(6):
 				hessian[3*ioni+beta][3*N+straini] = partial_pos_i_hessian[1][straini]
-   
+
 		strains_grad = grad['strains']
 		for straini in range(6):
 			partial_strain_i_hessian_scaled  = torch.autograd.grad(
@@ -93,7 +90,17 @@ class EwaldPotential:
 		self.hessian = hessian
 		return self.hessian
 
+	def get_pairwise_dists(self, pos: Tensor, other: Tensor=None, mask: Tensor=None) -> Tensor:
+		if other is None:
+			other = pos.clone()
 
+		rij = pos[:, None] - other[None, :]
+		dists = torch.sum(torch.pow(rij, 2), 2)
+		mask_ = dists!=0  # dispose self-self interactions in central cell
+		if mask is not None:
+			mask_ = mask.logical_and(mask_)
+		return torch.sqrt(dists[mask_]), mask_
+		
 	def get_gnorm(grad: Dict[Tensor, Tensor]):
 		size, gnorm = 0, 0
 		for param in grad:
