@@ -89,7 +89,8 @@ def init(charge_dict, atoms, outdir):
         'Cell':atoms.get_cell(), 
         'Electrostatic energy':coulomb_energy, 
         'Interatomic energy':buckingham_energy, \
-        'Total energy':initial_energy})
+        'Total energy':initial_energy
+    })
 
     return potentials, strains_vec, strains, \
         vects, scaled_pos, device, rng
@@ -237,7 +238,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                 {**iteration, 'Optimised': False}, 
                 dict_file)
             dict_file.close()
-        elif (('iterno' in kwargs) & (kwargs['iterno'] <= optimizer.iterno)):
+        if (('iterno' in kwargs) & (kwargs['iterno'] <= optimizer.iterno)):
             break
 
         if usr_flag:

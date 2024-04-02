@@ -11,7 +11,6 @@ from .cutoff import *
 
 class Buckingham(EwaldPotential):
     
-    
     def __init__(self,  filename: str, chemical_symbols: npt.ArrayLike, get_shifts: callable):
         super().__init__()
         
@@ -45,7 +44,8 @@ class Buckingham(EwaldPotential):
 
 
     def set_cutoff_parameters(self, vects: Tensor=None, N: int=0, 
-        accuracy: float=1e-21, real: float =0, reciprocal: float=0): 
+        accuracy: float=1e-21, real: float =0, reciprocal: float=0,
+        alpha: float=0): 
 
         if vects is not None:
             volume = torch.det(vects)
@@ -53,31 +53,35 @@ class Buckingham(EwaldPotential):
             self.real_cut_off = torch.div(math.sqrt(-np.log(accuracy)), self.alpha)
             self.recip_cut_off = torch.mul(self.alpha, 2*math.sqrt(-np.log(accuracy)))
         else:
-            self.real_cut_off = real
-            self.recip_cut_off = reciprocal
-            
+            if (real == 0) and (reciprocal == 0) or (alpha == 0):
+                raise ValueError('Cutoffs and alpha need to be defined.')
+            self.real_cut_off = torch.tensor(real)
+            self.recip_cut_off = torch.tensor(reciprocal)
+            self.alpha = torch.tensor(alpha)
+               
     
     def ewald_self_energy(self, volume: Tensor, N: int) -> Tensor:                           
 
-        esum = torch.tensor(0.)
-        
-        for ioni in range(N):
-            for ionj in range(N):
-                pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
-                        max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
-                if (pair in self.buck):
-                    # Pair of ions is listed in parameters file
-                    C = self.buck[pair]['par'][2]
-                    alphapi = torch.mul(torch.pow(self.alpha, 3), pi**(1.5))
-                    Cterm = torch.div(C ,torch.mul(3, volume))
-                    esum = torch.sub(esum, torch.mul(Cterm, alphapi))
-            pair = (self.chemical_symbols[ioni], self.chemical_symbols[ioni])
+        C, A, rho = torch.zeros((N,N)), torch.zeros((N,N)), torch.zeros((N,N))
+        for ioni, ionj in np.ndindex((N, N)):
+            pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
+                    max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
             if (pair in self.buck):
                 # Pair of ions is listed in parameters file
-                C = self.buck[pair]['par'][2] 
-                alpha6 = torch.pow(self.alpha, 6)
-                esum = torch.add(esum, 
-                        torch.div(torch.mul(C, alpha6), 6))
+                A[ioni][ionj] = self.buck[pair]['par'][0]
+                rho[ioni][ionj] = self.buck[pair]['par'][1]
+                C[ioni][ionj] = self.buck[pair]['par'][2]
+
+        mask = (A!=0).logical_or(rho!=0).logical_or(C!=0) # keep only relevant pairs  
+        alphapi = torch.mul(torch.pow(self.alpha, 3), pi**(1.5))
+        Cterm = torch.div(C[mask] ,torch.mul(3, volume))
+        esum = -torch.sum(torch.mul(Cterm, alphapi))
+
+        # Diagonal only
+        C = C.diag()
+        alpha6 = torch.pow(self.alpha, 6)
+        Calpha6 = torch.sum(torch.div(torch.mul(C, alpha6), 6))
+        esum = torch.add(esum, Calpha6)
             
         esum = torch.div(esum, 2)
         self.self_energy = esum
@@ -94,51 +98,51 @@ class Buckingham(EwaldPotential):
             shifts_no = 0
         else:
             shifts_no = len(shifts)
-            
-        esum = torch.tensor(0.)
         N = len(pos)
 
+        C = torch.zeros((N,N))
         for ioni, ionj in np.ndindex((N, N)):
             pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
             if (pair in self.buck):
                 # Pair of ions is listed in parameters file
-                C = self.buck[pair]['par'][2]
+                C[ioni][ionj] = self.buck[pair]['par'][2]
 
-                # Get distance vector
-                rij = torch.add(pos[ioni], -pos[ionj])
+        rij = pos[:, None] - pos[None, :]
+        rij_all = rij.reshape(-1, 3)
 
-                for shift in range(shifts_no):
-                    # shift on 2nd power
-                    k_2 = torch.dot(shifts[shift], shifts[shift])
-                    k_3 = torch.mul(k_2, torch.sqrt(k_2))
-                    krij = torch.dot(shifts[shift], rij)
-                    
-                    # Cterm is C*pow(pi,1.5)/(12*volume)
-                    Cterm = torch.div(C*pi**(1.5), torch.mul(12, volume))
-                    # costerm is cos(krij)*k_3
-                    costerm = torch.mul(torch.cos(krij), k_3)
+        esum = torch.tensor(0.)
+        for shift in range(shifts_no):
+            k_2 = torch.dot(shifts[shift], shifts[shift])
+            k_3 = torch.mul(k_2, torch.sqrt(k_2))
+            km = torch.tile(shifts[shift], (rij_all.shape[0],1))
+            krij_all = torch.einsum('ij,ij->i', km, rij_all)
+            
+            # Cterm is C*pow(pi,1.5)/(12*volume)
+            Cterm = torch.div(C.reshape(1, -1)*pi**(1.5), torch.mul(12, volume))
+            # costerm is cos(krij)*k_3
+            costerm = torch.mul(torch.cos(krij_all), k_3)
+            multiplier = torch.mul(Cterm, costerm)
+            
+            # erfcfrac is sqrt(k_2)/(2*alpha)
+            erfcfrac = torch.div(torch.sqrt(k_2), torch.mul(2, self.alpha))            
+            # erfcterm is sqrt(pi)*erfc(erfcfrac) 
+            sum1 = torch.mul(math.sqrt(pi), torch.erfc(erfcfrac))
+                                    
+            # alphadif is (4*pow(alpha,3)/k_3 - 2*alpha/sqrt(k_2))
+            alphadif1 = torch.div(torch.mul(4, torch.pow(self.alpha, 3)), k_3)
+            alphadif2 = torch.div(torch.mul(2, self.alpha), torch.sqrt(k_2))
+            alphadif = torch.subtract(alphadif1, alphadif2)
+            
+            # sum2 is alphadif*expterm
+            frac = -torch.div(k_2, torch.mul(torch.pow(self.alpha, 2), 4))
+            expterm = torch.exp(frac)
+            sum2 = torch.mul(alphadif, expterm)
+                                    
+            ksum = torch.mul(multiplier, torch.add(sum1, sum2)).sum()
+            esum = torch.sub(esum, ksum)
 
-                    multiplier = torch.mul(Cterm, costerm)
-                    
-                    # erfcfrac is sqrt(k_2)/(2*alpha)
-                    erfcfrac = torch.div(torch.sqrt(k_2), torch.mul(2, self.alpha))            
-                    # erfcterm is sqrt(pi)*erfc(erfcfrac) 
-                    sum1 = torch.mul(math.sqrt(pi), torch.erfc(erfcfrac))
-                                            
-                    # alphadif is (4*pow(alpha,3)/k_3 - 2*alpha/sqrt(k_2))
-                    alphadif1 = torch.div(torch.mul(4, torch.pow(self.alpha, 3)), k_3)
-                    alphadif2 = torch.div(torch.mul(2, self.alpha), torch.sqrt(k_2))
-                    alphadif = torch.subtract(alphadif1, alphadif2)
-                    
-                    # sum2 is alphadif*expterm
-                    frac = -torch.div(k_2, torch.mul(torch.pow(self.alpha, 2), 4))
-                    expterm = torch.exp(frac)
-                    sum2 = torch.mul(alphadif, expterm)
-                                            
-                    esum = torch.sub(esum, torch.mul(multiplier, torch.add(sum1, sum2)))
-
-        esum = torch.div(esum, 2)  # electrostatic constant
+        esum = torch.div(esum, 2)
         self.recip = esum
         return esum
 
@@ -148,73 +152,72 @@ class Buckingham(EwaldPotential):
         if shifts == None:
             shifts_no = 0
         else:
-            shifts_no = len(shifts)
-            
-        esum = torch.tensor(0.)
+            shifts_no = len(shifts)    
         N = len(pos)
+        esum = torch.tensor(0.)
 
+        C, A, rho = torch.zeros((N,N)), torch.zeros((N,N)), torch.zeros((N,N))
         for ioni, ionj in np.ndindex((N, N)):
-            # Find the pair we are examining
             pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
             if (pair in self.buck):
                 # Pair of ions is listed in parameters file
-                A = self.buck[pair]['par'][0]
-                rho = self.buck[pair]['par'][1]
-                C = self.buck[pair]['par'][2]
+                A[ioni][ionj] = self.buck[pair]['par'][0]
+                rho[ioni][ionj] = self.buck[pair]['par'][1]
+                C[ioni][ionj] = self.buck[pair]['par'][2]
 
-                if ioni != ionj:
-                    # Get distance vector
-                    dist = torch.norm(torch.add(pos[ioni], -pos[ionj]))
+        mask_params = (A!=0).logical_or(rho!=0).logical_or(C!=0) # keep only relevant pairs  
+        central_dists, mask = self.get_pairwise_dists(pos, mask=mask_params)
+        
+        # Get repulsion energy
+        frac = -torch.div(central_dists, rho[mask])
+        esum = torch.sum(torch.mul(A[mask], torch.exp(frac)))
 
-                    # Get repulsion energy
-                    frac = -torch.div(dist, rho)
-                    esum = torch.add(esum, torch.mul(A, torch.exp(frac)))
-                    
-                    # Get dispersion with ewald
-                    # Cterm is C/pow(dist,6)
-                    Cterm = torch.div(C, torch.pow(dist, 6))
-                    amuldist = torch.mul(self.alpha, dist)
-                    ar2 = torch.pow(amuldist, 2)
-                    ar4 = torch.pow(ar2, 2)
-                    # alphaterm is (1+pow(alpha*dist,2)+pow(alpha*dist,4)/2)
-                    alphaterm = torch.add(torch.add(1, ar2), torch.div(ar4, 2))
-                    # expterm is exp(-pow(alpha*dist,2))
-                    expterm = torch.exp(-torch.pow(amuldist, 2))
-                    
-                    term = torch.mul(Cterm, alphaterm)
-                    term = torch.mul(term, expterm)
-                    esum = torch.sub(esum, term)
-                    
+        # Get dispersion with ewald
+        # Cterm is C/pow(dist,6)
+        Cterm = torch.div(C[mask], torch.pow(central_dists, 6))
+        amuldist = torch.mul(self.alpha, central_dists)
+        ar2 = torch.pow(amuldist, 2)
+        ar4 = torch.pow(ar2, 2)
+        # alphaterm is (1+pow(alpha*dist,2)+pow(alpha*dist,4)/2)
+        alphaterm = torch.add(torch.add(1, ar2), torch.div(ar4, 2))
+        # expterm is exp(-pow(alpha*dist,2))
+        expterm = torch.exp(-torch.pow(amuldist, 2))
+        
+        term = torch.mul(Cterm, alphaterm)
+        term = torch.mul(term, expterm)
+        esum = torch.sub(esum, term.sum())
+        
+        for shift in range(shifts_no):
+            
+            # Get distance vectors
+            pos_shift = pos.clone()+ torch.tile(shifts[shift], (N,1))
+            img_dists, mask = self.get_pairwise_dists(pos, pos_shift, mask=mask_params)
+            
+            # Get repulsion energy
+            frac = -torch.div(img_dists, rho[mask])
+            esum = torch.add(esum, torch.sum(torch.mul(A[mask], torch.exp(frac))))
 
-                for shift in range(shifts_no):
-                    # Get distance vector
-                    pvec = torch.add(pos[ioni], -pos[ionj])
-                    dist = torch.norm( torch.add(pvec, shifts[shift]) )
-
-                    # Get repulsion energy
-                    frac = -torch.div(dist, rho)
-                    esum = torch.add(esum, torch.mul(A, torch.exp(frac)))
-                    
-                    # Get dispersion with ewald
-                    # Cterm is C/pow(dist,6)
-                    Cterm = torch.div(C, torch.pow(dist, 6))
-                    amuldist = torch.mul(self.alpha, dist)
-                    ar2 = torch.pow(amuldist, 2)
-                    ar4 = torch.pow(ar2, 2)
-                    # alphaterm is (1+pow(alpha*dist,2)+pow(alpha*dist,4)/2)
-                    alphaterm = torch.add(torch.add(1, ar2), torch.div(ar4, 2))
-                    # expterm is exp(-pow(alpha*dist,2))
-                    expterm = torch.exp(-torch.pow(amuldist, 2))
-                    
-                    term = torch.mul(Cterm, alphaterm)
-                    term = torch.mul(term, expterm)
-                    esum = torch.sub(esum, term)
+            # Get dispersion with ewald
+            # Cterm is C/pow(dist,6)
+            Cterm = torch.div(C[mask], torch.pow(img_dists, 6))
+            amuldist = torch.mul(self.alpha, img_dists)
+            ar2 = torch.pow(amuldist, 2)
+            ar4 = torch.pow(ar2, 2)
+            # alphaterm is (1+pow(alpha*dist,2)+pow(alpha*dist,4)/2)
+            alphaterm = torch.add(torch.add(1, ar2), torch.div(ar4, 2))
+            # expterm is exp(-pow(alpha*dist,2))
+            expterm = torch.exp(-torch.pow(amuldist, 2))
+            
+            term = torch.mul(Cterm, alphaterm)
+            term = torch.mul(term, expterm)
+            esum = torch.sub(esum, term.sum())
                         
-        esum = torch.div(esum, 2)  # electrostatic constant
+        esum = torch.div(esum, 2)  
         self.real = esum
         return esum
     
+
     def all_energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
         real_energy = self.ewald_real_energy(pos, vects)	
         recip_energy = self.ewald_recip_energy(pos, vects, volume)

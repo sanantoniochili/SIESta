@@ -34,7 +34,8 @@ class Coulomb(EwaldPotential):
 
 	
 	def set_cutoff_parameters(self, vects: Tensor=None, N: int=0, 
-		accuracy: float=1e-21, real: float =0, reciprocal: float=0): 
+		accuracy: float=1e-21, real: float=0, reciprocal: float=0,
+		alpha: float= 0): 
 
 		if vects is not None:
 			volume = torch.det(vects)
@@ -42,8 +43,11 @@ class Coulomb(EwaldPotential):
 			self.real_cut_off = torch.div(math.sqrt(-np.log(accuracy)), self.alpha)
 			self.recip_cut_off = torch.mul(self.alpha, 2*math.sqrt(-np.log(accuracy)))
 		else:
-			self.real_cut_off = real
-			self.recip_cut_off = reciprocal
+			if (real == 0) and (reciprocal == 0) or (alpha == 0):
+				raise ValueError('Cutoffs and alpha need to be defined.')
+			self.real_cut_off = torch.tensor(real)
+			self.recip_cut_off = torch.tensor(reciprocal)
+			self.alpha = torch.tensor(alpha)
 
 
 	def ewald_real_energy(self, pos: Tensor, vects: Tensor) -> Tensor:
@@ -51,30 +55,33 @@ class Coulomb(EwaldPotential):
 		if shifts == None:
 			shifts_no = 0
 		else:
-			shifts_no = len(shifts)
-		
-		esum = torch.tensor(0.)
+			shifts_no = len(shifts)		
 		N = len(pos)
 
+		esum = torch.tensor(0)
+		charges = torch.ones((N,N), requires_grad=False)
 		for ioni in range(N):
 			for ionj in range(N):
-				if ioni != ionj:  # skip in case it's the same ion in original unit cell
-					dist = torch.norm(torch.add(pos[ioni], -pos[ionj]))
-					term = torch.erfc(torch.mul(self.alpha, dist))
-					charges = self.charges[ioni]*self.charges[ionj]
-					esum = torch.add(esum, torch.mul(charges, torch.div(term, dist)))
+				charges[ioni][ionj] = self.charges[ioni]*self.charges[ionj]
+		
+		# Keep off-diagonal elements
+		central_dists, mask = self.get_pairwise_dists(pos)
+		term = torch.erfc(torch.mul(self.alpha, central_dists))
+		offcharges = charges[mask]
+		esum = torch.mul(offcharges , torch.div(term, central_dists)).sum()
 
-				# Take care of the rest lattice (+ Ln)
-				# Start with whole unit cell images
-				for shift in range(shifts_no):
-					pvec = torch.add(pos[ioni], -pos[ionj])
-					dist = torch.norm( torch.add(pvec, shifts[shift]) )
-					term = torch.erfc(torch.mul(self.alpha, dist))
-					charges = self.charges[ioni]*self.charges[ionj]
-					esum = torch.add(esum, torch.mul(charges, torch.div(term, dist)))
-
+		# Cell neighboring images
+		for shift in range(shifts_no):
+			pos_shift = torch.add(pos.clone(), torch.tile(shifts[shift], (N,1)))
+			img_dists, mask = self.get_pairwise_dists(pos, pos_shift)
+			term = torch.erfc(torch.mul(self.alpha, img_dists))
+			divisor = torch.div(term, img_dists)
+			offcharges = charges[mask]
+			esum = torch.add(esum, torch.mul(offcharges, divisor).sum())
+		
 		esum = torch.mul(esum, 14.399645351950543/2)  # electrostatic constant
 		self.real = esum
+
 		return esum
 
 	
@@ -88,44 +95,43 @@ class Coulomb(EwaldPotential):
 			shifts_no = 0
 		else:
 			shifts_no = len(shifts)
-		
-		esum = torch.tensor(0.)
 		N = len(pos)
 
+		charges = torch.ones((N,N))
 		for ioni in range(N):
 			for ionj in range(N):
-       
-				# Get distance vector
-				rij = torch.add(pos[ioni], -pos[ionj])
-    
-				for shift in range(shifts_no):
-					# shift on 2nd power
-					k_2 = torch.dot(shifts[shift], shifts[shift])
-					krij = torch.dot(shifts[shift], rij)
-					power = -torch.div(k_2, torch.mul(4, torch.pow(self.alpha, 2)))
-					cos_term = torch.mul(torch.mul(2*pi, torch.exp(power)), torch.cos(krij))
-					# actual calculation
-					frac = torch.div(cos_term, torch.mul(k_2, volume))
-					charges = self.charges[ioni]*self.charges[ionj]
-					esum = torch.add(esum, torch.mul(charges, frac))
+				charges[ioni][ionj] = self.charges[ioni]*self.charges[ionj]
+
+		rij = pos[:, None] - pos[None, :]
+		rij_all = rij.reshape(-1, 3)
+		
+		esum = torch.tensor(0.)
+		for shift in range(shifts_no):
+			k_2 = torch.dot(shifts[shift], shifts[shift])	
+			km = torch.tile(shifts[shift], (rij_all.shape[0],1))
+			krij_all = torch.einsum('ij,ij->i', km, rij_all)
+			power = -torch.div(k_2, torch.mul(4, torch.pow(self.alpha, 2)))
+			cos_term = torch.mul(torch.mul(2*pi, torch.exp(power)), torch.cos(krij_all))
+			# actual calculation
+			frac = torch.mul(charges.reshape(1, -1), torch.div(cos_term, torch.mul(k_2, volume)))
+			esum = torch.add(esum,  frac.sum())
 
 		esum = torch.mul(esum, 14.399645351950543)  # electrostatic constant
 		self.recip = esum
+
 		return esum
 
 
 	def ewald_self_energy(self, pos: Tensor) -> Tensor:
-
-		esum = torch.tensor(0.)
 		N = len(pos)
-  
-		for ioni in range(N):
-			alphapi = torch.div(self.alpha, math.sqrt(pi))
-			esum = torch.add(esum, -torch.mul(self.charges[ioni]**2, alphapi))
-   
+		charges = torch.tensor(self.charges.copy())
+		alphapi = torch.div(self.alpha, math.sqrt(pi))
+		esum = sum(-torch.mul(torch.square(charges), alphapi))
+
 		esum = torch.mul(esum, 14.399645351950543)  # electrostatic constant
 		self.self_energy = esum
 		return esum
+
 
 	def all_energy(self, pos: Tensor, vects: Tensor, volume: Tensor) -> Tensor:
 		real_energy = self.ewald_real_energy(pos, vects)	
@@ -135,4 +141,6 @@ class Coulomb(EwaldPotential):
 		energy = torch.add(real_energy, recip_energy)
 		self.energy = torch.add(energy, self_energy)
 		return self.energy
+
+
 
