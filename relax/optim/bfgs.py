@@ -156,7 +156,7 @@ class BFGS(Optimizer):
                 self.outfile+"_"+\
                 str(self.iterno)+".pkl", "wb")
             pickle.dump(
-                {**iteration, 'Optimised': True}, 
+                {**iteration, 'Optimised': False}, 
                 dict_file)
             dict_file.close()				
     
