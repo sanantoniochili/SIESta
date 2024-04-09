@@ -132,7 +132,7 @@ if __name__ == "__main__":
 		optimizer = BFGS(charge_dict=charge_dict,
 				   atoms=atoms,
 				   max_iter=iterno,
-				   outfile=outdir+structure)
+				   outfile=outdir+structure+'/'+structure)
 		optimizer.run()
 		sys.exit()
   

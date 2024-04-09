@@ -10,8 +10,7 @@ from ase.visualize import view
 from ase.io import write
 
 import pickle
-
-import sys
+import sys, os
 np.set_printoptions(threshold=sys.maxsize)
 
 class BFGS(Optimizer):
@@ -147,6 +146,13 @@ class BFGS(Optimizer):
             }
             print(iteration)
 
+            optimised = False
+            if self.gnorms[-1] <= self.tol:
+                optimised = True
+
+            if not os.path.isdir(os.path.dirname(self.outfile)):
+                os.mkdir(os.path.dirname(self.outfile)) 
+
             # Check for termination
             print("Writing result to file",
             self.outfile+"_"+str(self.iterno),"...")
@@ -156,9 +162,12 @@ class BFGS(Optimizer):
                 self.outfile+"_"+\
                 str(self.iterno)+".pkl", "wb")
             pickle.dump(
-                {**iteration, 'Optimised': False}, 
+                {**iteration, 'Optimised': optimised}, 
                 dict_file)
-            dict_file.close()				
+            dict_file.close()	
+
+            if optimised:
+                sys.exit()			
     
         scipy.optimize.minimize(self.get_energy, self.x0, 
                                 args=(self.potentials), 
