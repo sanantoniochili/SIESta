@@ -188,5 +188,7 @@ class BFGS(Optimizer):
         write(self.outfile+"_final.cif", self.atoms)
         dict_file = open(
             self.outfile+"_final.pkl", "wb")
-        pickle.dump(res_dict, dict_file)
+        pickle.dump(
+            {**res_dict, 'gnorm': self.gnorms[-1]}, 
+            dict_file)
         dict_file.close()
