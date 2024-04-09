@@ -185,10 +185,8 @@ class BFGS(Optimizer):
         # Termination
         print("Writing result to file",
         self.outfile+"_"+str(self.iterno),"...")
-        write(self.outfile+"_"+"_final.cif", self.atoms)
+        write(self.outfile+"_final.cif", self.atoms)
         dict_file = open(
-            self.outfile+"_"+"_final.pkl", "wb")
-        pickle.dump(
-            {**res_dict, 'Optimised': True}, 
-            dict_file)
+            self.outfile+"_final.pkl", "wb")
+        pickle.dump(res_dict, dict_file)
         dict_file.close()
