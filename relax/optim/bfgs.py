@@ -131,7 +131,7 @@ class BFGS(Optimizer):
             grad_norm = 0
 
         self.iterno += 1
-        return grad.reshape(1,-1)[0]
+        return grad_norm.reshape(1,-1)[0]
     
     def run(self):
         def callback(intermediate_result):
