@@ -4,9 +4,8 @@ import pickle
 
 from ase.io import read as aread
 from ase.cell import Cell
-from ase.geometry import wrap_positions, get_distances
+from ase.geometry import wrap_positions
 from ase.io import write
-from ase.geometry import cell_to_cellpar, cellpar_to_cell
 
 from relax.analytic_potentials.potential import *
 from relax.analytic_potentials.coulomb.coulomb import Coulomb
@@ -26,8 +25,8 @@ def prettyprint(dict_):
 			print(value)
 	print(words.center(COLUMNS,"-"))
  
-def init(charge_dict, atoms, outdir):
 
+def init(charge_dict, atoms, outdir):
 	"""  INITIALISATION  """
 	vects 				= np.asarray(atoms.get_cell())
 	scaled_pos 			= np.asarray(atoms.get_scaled_positions())

@@ -3,7 +3,7 @@ from typing import overload
 
 class Optimizer:
 
-    def __init__(self, lnsearch, ftol=0.00001, gtol=0.001, tol=0.001):
+    def __init__(self, lnsearch, ftol=1e-5, gtol=1e-3, tol=0.001):
         self.ftol = ftol
         self.gtol = gtol
         self.tol = tol

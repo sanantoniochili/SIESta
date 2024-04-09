@@ -120,14 +120,25 @@ if __name__ == "__main__":
 				lnsearch.schedule = int(args.ln[1])
 			elif args.ln[0] == 'scheduled_exp':
 				lnsearch.exp = float(args.ln[1])
-  
-	optimizer = GD(lnsearch)
-	if args.m:
-		optimizer = globals()[args.m](lnsearch)	
-	
+
 	iterno = 0
 	if args.relax is not None:
 		iterno = args.relax
+
+	# Special case for BFGS, can change in the future
+	if args.m=='BFGS':
+		import sys
+		from relax.optim.bfgs import BFGS
+		optimizer = BFGS(charge_dict=charge_dict,
+				   atoms=atoms,
+				   max_iter=iterno,
+				   outfile=outdir+structure)
+		optimizer.run()
+		sys.exit()
+  
+	optimizer = GD(lnsearch)
+	if args.m is not None:
+		optimizer = globals()[args.m](lnsearch)	
 		
 	repeat(
 		atoms=atoms, 

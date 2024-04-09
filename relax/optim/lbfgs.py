@@ -8,7 +8,7 @@ from relax.optim.optimizer import Optimizer
 class LBFGS(Optimizer):
     
 	def __init__(self, lnsearch, max_iter=20, max_eval=100,
-			  ftol=1e-5, gtol=1e-5, tol=1e-5, history_size=50):
+			  ftol=1e-5, gtol=1e-3, tol=1e-5, history_size=50):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
 		self.reg_value = None
