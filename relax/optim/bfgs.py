@@ -145,7 +145,6 @@ class BFGS(Optimizer):
             'Cell':np.array(self.atoms.get_cell()), 'Iter':self.iterno, 
             'Step': 0, 'Gnorm':self.gnorms[g_index], 'Energy':intermediate_result['fun']
             }
-            view(self.atoms)
             print(iteration)
 
             # Check for termination
