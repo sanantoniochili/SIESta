@@ -167,10 +167,28 @@ class BFGS(Optimizer):
             dict_file.close()	
 
             if optimised:
-                sys.exit()			
+                sys.exit()	
+
+        from scipy.optimize import OptimizeResult
+        x =OptimizeResult()	
+        print(x.items())
     
-        scipy.optimize.minimize(self.get_energy, self.x0, 
+        res = scipy.optimize.minimize(self.get_energy, self.x0, 
                                 args=(self.potentials), 
                                 callback=callback,
                                 method='BFGS', jac=self.get_gradient, 
                                 tol=self.tol, options={'maxiter': self.max_iter})
+        res_dict = {}
+        for key, value in res.items():
+            res_dict[key] = value
+
+        # Termination
+        print("Writing result to file",
+        self.outfile+"_"+str(self.iterno),"...")
+        write(self.outfile+"_"+"_final.cif", self.atoms)
+        dict_file = open(
+            self.outfile+"_"+"_final.pkl", "wb")
+        pickle.dump(
+            {**res_dict, 'Optimised': True}, 
+            dict_file)
+        dict_file.close()
