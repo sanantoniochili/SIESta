@@ -57,7 +57,8 @@ def init(charge_dict, atoms, outdir):
     Cpot = Coulomb(
         chemical_symbols=chemical_symbols,
         charge_dict=charge_dict,
-        get_shifts=inflated_cell_truncation
+        get_shifts=inflated_cell_truncation,
+        device=device
     )
     Cpot.set_cutoff_parameters(
         vects=vects, 
@@ -68,7 +69,8 @@ def init(charge_dict, atoms, outdir):
     Bpot = Buckingham(
         filename='libraries/buck.lib',
         chemical_symbols=chemical_symbols,
-        get_shifts=inflated_cell_truncation
+        get_shifts=inflated_cell_truncation,
+        device=device
     )
     Bpot.set_cutoff_parameters(
         vects=vects, 

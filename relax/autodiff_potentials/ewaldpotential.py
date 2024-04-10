@@ -3,11 +3,15 @@ import torch, math
 from torch import Tensor
 from math import pi
 from typing import Dict
+from torch.cuda import device
 
 class EwaldPotential:
 	"""Generic class for defining Ewald sum potentials."""
-	def __init__(self) -> None:
-		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	def __init__(self, device: device=None) -> None:
+		if device is not None:
+			self.device = device
+		else:
+			self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 		self.energy = torch.tensor(0.)
 		self.grad = {}
 

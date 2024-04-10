@@ -5,14 +5,16 @@ import numpy as np
 import math
 import numpy.typing as npt
 from typing import Dict, Tuple
+from torch.cuda import device
 
 from .ewaldpotential import *
 from .cutoff import *
 
 class Buckingham(EwaldPotential):
     
-    def __init__(self,  filename: str, chemical_symbols: npt.ArrayLike, get_shifts: callable):
-        super().__init__()
+    def __init__(self,  filename: str, chemical_symbols: npt.ArrayLike, 
+                 get_shifts: callable, device: device):
+        super().__init__(device=device)
         
         self.alpha = None
         self.real_cut_off = 0
@@ -55,9 +57,9 @@ class Buckingham(EwaldPotential):
         else:
             if (real == 0) and (reciprocal == 0) or (alpha == 0):
                 raise ValueError('Cutoffs and alpha need to be defined.')
-            self.real_cut_off = torch.tensor(real)
-            self.recip_cut_off = torch.tensor(reciprocal)
-            self.alpha = torch.tensor(alpha)
+            self.real_cut_off = torch.tensor(real, device=self.device)
+            self.recip_cut_off = torch.tensor(reciprocal, device=self.device)
+            self.alpha = torch.tensor(alpha, device=self.device)
                
     
     def ewald_self_energy(self, volume: Tensor, N: int) -> Tensor:                           
@@ -111,7 +113,7 @@ class Buckingham(EwaldPotential):
         rij = pos[:, None] - pos[None, :]
         rij_all = rij.reshape(-1, 3)
 
-        esum = torch.tensor(0.)
+        esum = torch.tensor(0., device=self.device)
         for shift in range(shifts_no):
             k_2 = torch.dot(shifts[shift], shifts[shift])
             k_3 = torch.mul(k_2, torch.sqrt(k_2))
@@ -154,7 +156,7 @@ class Buckingham(EwaldPotential):
         else:
             shifts_no = len(shifts)    
         N = len(pos)
-        esum = torch.tensor(0.)
+        esum = torch.tensor(0., device=self.device)
 
         C, A, rho = torch.zeros((N,N)), torch.zeros((N,N)), torch.zeros((N,N))
         for ioni, ionj in np.ndindex((N, N)):

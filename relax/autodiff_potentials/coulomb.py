@@ -5,14 +5,16 @@ import numpy as np
 import math
 import numpy.typing as npt
 from typing import Dict, Tuple
+from torch.cuda import device
 
 from .ewaldpotential import *
 from .cutoff import *
 
 class Coulomb(EwaldPotential):
 
-	def __init__(self, chemical_symbols: npt.ArrayLike, charge_dict: Dict, get_shifts: callable):
-		super().__init__()
+	def __init__(self, chemical_symbols: npt.ArrayLike, charge_dict: Dict, 
+			  get_shifts: callable, device: device):
+		super().__init__(device=device)
   
 		self.alpha = None
 		self.real_cut_off = 0
@@ -45,9 +47,9 @@ class Coulomb(EwaldPotential):
 		else:
 			if (real == 0) and (reciprocal == 0) or (alpha == 0):
 				raise ValueError('Cutoffs and alpha need to be defined.')
-			self.real_cut_off = torch.tensor(real)
-			self.recip_cut_off = torch.tensor(reciprocal)
-			self.alpha = torch.tensor(alpha)
+			self.real_cut_off = torch.tensor(real, device=self.device)
+			self.recip_cut_off = torch.tensor(reciprocal, device=self.device)
+			self.alpha = torch.tensor(alpha, device=self.device)
 
 
 	def ewald_real_energy(self, pos: Tensor, vects: Tensor) -> Tensor:
@@ -58,8 +60,8 @@ class Coulomb(EwaldPotential):
 			shifts_no = len(shifts)		
 		N = len(pos)
 
-		esum = torch.tensor(0)
-		charges = torch.ones((N,N), requires_grad=False)
+		esum = torch.tensor(0., device=self.device)
+		charges = torch.ones((N,N), requires_grad=False, device=self.device)
 		for ioni in range(N):
 			for ionj in range(N):
 				charges[ioni][ionj] = self.charges[ioni]*self.charges[ionj]
@@ -105,7 +107,7 @@ class Coulomb(EwaldPotential):
 		rij = pos[:, None] - pos[None, :]
 		rij_all = rij.reshape(-1, 3)
 		
-		esum = torch.tensor(0.)
+		esum = torch.tensor(0., device=self.device)
 		for shift in range(shifts_no):
 			k_2 = torch.dot(shifts[shift], shifts[shift])	
 			km = torch.tile(shifts[shift], (rij_all.shape[0],1))
@@ -124,7 +126,7 @@ class Coulomb(EwaldPotential):
 
 	def ewald_self_energy(self, pos: Tensor) -> Tensor:
 		N = len(pos)
-		charges = torch.tensor(self.charges.copy())
+		charges = torch.tensor(self.charges.copy(), device=self.device)
 		alphapi = torch.div(self.alpha, math.sqrt(pi))
 		esum = sum(-torch.mul(torch.square(charges), alphapi))
 
