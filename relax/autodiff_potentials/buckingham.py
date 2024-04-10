@@ -64,7 +64,7 @@ class Buckingham(EwaldPotential):
     
     def ewald_self_energy(self, volume: Tensor, N: int) -> Tensor:                           
 
-        C, A, rho = torch.zeros((N,N)), torch.zeros((N,N)), torch.zeros((N,N))
+        C, A, rho = torch.zeros((N,N), device=self.device), torch.zeros((N,N), device=self.device), torch.zeros((N,N), device=self.device)
         for ioni, ionj in np.ndindex((N, N)):
             pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
@@ -102,7 +102,7 @@ class Buckingham(EwaldPotential):
             shifts_no = len(shifts)
         N = len(pos)
 
-        C = torch.zeros((N,N))
+        C = torch.zeros((N,N), device=self.device)
         for ioni, ionj in np.ndindex((N, N)):
             pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))
@@ -158,7 +158,7 @@ class Buckingham(EwaldPotential):
         N = len(pos)
         esum = torch.tensor(0., device=self.device)
 
-        C, A, rho = torch.zeros((N,N)), torch.zeros((N,N)), torch.zeros((N,N))
+        C, A, rho = torch.zeros((N,N), device=self.device), torch.zeros((N,N), device=self.device), torch.zeros((N,N), device=self.device)
         for ioni, ionj in np.ndindex((N, N)):
             pair = (min(self.chemical_symbols[ioni], self.chemical_symbols[ionj]),
                     max(self.chemical_symbols[ioni], self.chemical_symbols[ionj]))

@@ -99,7 +99,7 @@ class Coulomb(EwaldPotential):
 			shifts_no = len(shifts)
 		N = len(pos)
 
-		charges = torch.ones((N,N))
+		charges = torch.ones((N,N), device=self.device)
 		for ioni in range(N):
 			for ionj in range(N):
 				charges[ioni][ionj] = self.charges[ioni]*self.charges[ionj]
