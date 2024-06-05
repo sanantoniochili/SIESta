@@ -1,5 +1,4 @@
 import numpy as np
-from relax.optim.analytic import *
 from relax.optim.optimizer import Optimizer
 
 class GD(Optimizer):

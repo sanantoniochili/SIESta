@@ -6,6 +6,7 @@ import numpy as np
 from ase import *
 from ase.io import read as aread
 from ase.io import write as awrite
+from ase.visualize import view
 
 from relax.optim.gradient_descent import GD
 from relax.optim.conjugate_gradient import *
@@ -80,7 +81,7 @@ if __name__ == "__main__":
 			structure = "structure_"+structure+"_"+str(atoms.symbols)
 	else:
 		from examples import *
-		atoms, structure = get_example2()
+		atoms, structure = get_example3()
 		print("Using custom Atoms object as input.")
 	
 	
@@ -140,7 +141,7 @@ if __name__ == "__main__":
 	if args.m is not None:
 		optimizer = globals()[args.m](lnsearch)	
 		
-	repeat(
+	iteration = repeat(
 		atoms=atoms, 
 		outdir=outdir,
 		outfile=structure,
@@ -151,4 +152,23 @@ if __name__ == "__main__":
 		out=args.out if args.out else 1, 
 		debug=args.debug if args.debug else False,
 		iterno=iterno
+	)
+
+	lnsearch = LnSearch(
+		max_step= 1e-5,
+		min_step= 1e-5,
+		exponent=0.999,
+	)
+	optimizer = GD(lnsearch)
+	iteration = repeat(
+		atoms=atoms, 
+		outdir=outdir,
+		outfile=structure,
+		charge_dict=charge_dict,
+		optimizer=optimizer, 
+		line_search_fn='scheduled_exp',
+		usr_flag=args.user, 
+		out=args.out if args.out else 1, 
+		debug=args.debug if args.debug else False,
+		iterno=70000
 	)

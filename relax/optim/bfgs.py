@@ -168,10 +168,6 @@ class BFGS(Optimizer):
 
             if optimised:
                 sys.exit()	
-
-        from scipy.optimize import OptimizeResult
-        x =OptimizeResult()	
-        print(x.items())
     
         res = scipy.optimize.minimize(self.get_energy, self.x0, 
                                 args=(self.potentials), 

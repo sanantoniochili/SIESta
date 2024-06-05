@@ -26,6 +26,8 @@ class EwaldPotential:
 	def get_alpha(self, N: float, volume: Tensor) -> Tensor:
 		accuracy = N**(1/6) * math.sqrt(pi)
 		alpha = torch.div(accuracy, torch.pow(volume, 1/3))
+		if (volume<0):
+			raise ValueError('Volume has a negative value.')
 		return alpha
 
 	def get_gradient(self, energy: Tensor, scaled_pos: Tensor, N: int,

@@ -1,7 +1,6 @@
 import math, torch
 import numpy as np
 from ase.geometry import wrap_positions
-from relax.optim.analytic import *
 from relax.optim.optimizer import Optimizer
 
 

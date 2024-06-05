@@ -10,7 +10,6 @@ from relax.autodiff_potentials.coulomb import Coulomb
 from relax.autodiff_potentials.buckingham import Buckingham
 from relax.autodiff_potentials.cutoff import inflated_cell_truncation
 from relax.autodiff_potentials.ewaldpotential import EwaldPotential
-from relax.finite_differences import finite_diff_grad
 
 import shutil
 COLUMNS = shutil.get_terminal_size().columns
@@ -200,7 +199,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 
     # Keep info of this iteration
     iteration = {
-    'Time': time.time()-start_time, 'Gradient': grad, 'Positions':pos, 'Strains':np.ones((6,)), 
+    'Time': time.time()-start_time, 'Gradient': grad, 
+    'Positions':atoms.get_positions(), 'Strains':np.ones((6,)), 
     'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
     'Step': 0, 'Gnorm':gnorm, 'Energy':total_energy, **secdrv
     }
@@ -214,8 +214,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if optimizer.completion_check(gnorm):
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-            #     str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -229,8 +229,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         elif (optimizer.iterno%out)==0:
             print("Writing result to file",
             outfile+"_"+str(optimizer.iterno),"...")
-            # write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
-            #     str(optimizer.iterno)+".png", atoms)
+            write(outdir+"imgs/"+outfile+"/"+outfile+"_"+\
+                str(optimizer.iterno)+".png", atoms)
             write(outdir+"structs/"+outfile+"/"+outfile+"_"+\
                 str(optimizer.iterno)+".cif", atoms)
             dict_file = open(
@@ -333,6 +333,12 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         total_energy = 0
         for name in potentials:
             total_energy += potentials[name].all_energy(pos, vects, volume).item()
+
+        # Update Lipschitz constant if needed
+        if optimizer.requires_lipschitz:
+            optimizer.lipschitz_constant_estimation(
+                 iteration['Energy'], np.concatenate([iteration['Positions'], iteration['Cell']]),
+                 total_energy, np.concatenate([atoms.get_positions(), atoms.get_cell()]))
 
         ''' 4 --- Re-calculate derivatives --- 4 '''
         # Gradient for current point on PES

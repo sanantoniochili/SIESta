@@ -11,6 +11,7 @@ class Optimizer:
         self.residual = None
         self.lnscheduler = lnsearch
         self.requires_hessian = False
+        self.requires_lipschitz = False
 
     def completion_check(self, gnorm):
         """Function to check if termination conditions have 
