@@ -59,16 +59,14 @@ class CubicMin(Optimizer):
 	
 	def completion_check(self, gnorm: float):
 		if super().completion_check(gnorm) & (self.reg_value is not None):
-		# if self.reg_value is None:
-		# 	return False
-		# if self.reg_value > - self.cparams['tol']**(3/2)/(
-		# 	self.cparams['c']*math.sqrt(self.cparams['L'])):
-		# 	if self.debug:
-		# 		pprint.print_result({'final': self.reg_value}, 
-		# 			tol=- self.cparams['tol']**(3/2)/(self.cparams['c']*math.sqrt(self.cparams['L'])),
-		# 			iterno=self.iterno)
-		# 		pprint.print_emphasis('cubic min end')
-			return True
+			if self.reg_value > - self.cparams['tol']**(3/2)/(
+				self.cparams['c']*math.sqrt(self.cparams['L'])):
+				if self.debug:
+					pprint.print_result({'final': self.reg_value}, 
+						tol=- self.cparams['tol']**(3/2)/(self.cparams['c']*math.sqrt(self.cparams['L'])),
+						iterno=self.iterno)
+					pprint.print_emphasis('cubic min end')
+				return True
 		return False
  
 
