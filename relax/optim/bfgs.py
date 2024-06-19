@@ -153,7 +153,6 @@ class BFGS(Optimizer):
             if not os.path.isdir(os.path.dirname(self.outfile)):
                 os.mkdir(os.path.dirname(self.outfile)) 
 
-            # Check for termination
             print("Writing result to file",
             self.outfile+"_"+str(self.iterno),"...")
             write(self.outfile+"_"+\

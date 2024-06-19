@@ -3,6 +3,7 @@ import numpy as np
 import pickle
 import time
 
+import sys, signal
 from ase.geometry import wrap_positions
 from ase.io import write
 
@@ -97,6 +98,16 @@ def init(charge_dict, atoms, outdir):
         vects, scaled_pos, device, rng
 
 
+class GracefulKiller:
+  kill_now = False
+  def __init__(self):
+    signal.signal(signal.SIGINT, self.exit_gracefully)
+    signal.signal(signal.SIGTERM, self.exit_gracefully)
+
+  def exit_gracefully(self, signum, frame):
+    self.kill_now = True
+
+
 def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     optimizer, usr_flag=False, out=1, **kwargs):
     """The function that performs the optimisation. It calls repetitively 
@@ -175,6 +186,14 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             grad['positions'], grad_res['positions'])
         grad['strains'] = torch.add(
             grad['strains'], grad_res['strains'])
+        
+    # Gradient norm
+    gnorm = EwaldPotential.get_gnorm(grad)
+    optimizer.lnscheduler.gnorm = gnorm
+        
+    # # Update Lipschitz constant if needed
+    # if optimizer.requires_lipschitz:
+    #     optimizer.cparams['L'] = max(torch.max(grad['positions']).item(), torch.mean(grad['strains']).item())
     
     # Hessian for current point on PES
     secdrv = {}
@@ -185,12 +204,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                 potentials[name].grad, scaled_pos, vects, 
                 strains_vec, volume)
         hessian = torch.add(hessian, hess_res)
-        secdrv = {'Hessian': hessian}
+        secdrv = {'Hessian': hessian, 'L': optimizer.cparams['L']}
         
-    
-    # Gradient norm
-    gnorm = EwaldPotential.get_gnorm(grad)
-    optimizer.lnscheduler.gnorm = gnorm
     
     # Sum energy values
     total_energy = 0
@@ -206,7 +221,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
     }
 
     # Iterations
-    while(True):
+    killer = GracefulKiller()
+    while(not killer.kill_now):
         final_iteration = iteration
 
         # Check for termination
@@ -247,7 +263,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
             usr = input()
             if 'n' in usr:
                 return iteration
-            
+        
         # Tensors to numpy
         params = np.ones((N+2,3))
         params[:N] = pos.cpu().detach().numpy().copy()
@@ -273,15 +289,16 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         if gnorm>0:
             grad_norm = grad_np/gnorm
         # Normalise hessian    
-        hnorm = EwaldPotential.get_Hnorm(hessian)  
-        hess_norm = hessian/hnorm
+        hessian_np = hessian.cpu().detach().numpy()
+        # hnorm = np.linalg.norm(hessian_np)
+        # hess_norm = hessian_np/hnorm
 
         ''' 1 --- Apply an optimization step --- 1 '''
         params = optimizer.step(
-            grad=grad_norm, gnorm=gnorm, params=params, 
+            grad=grad_np, params=params, 
             line_search_fn=line_search_fn, 
-            hessian=hess_norm.cpu().detach().numpy(), hnorm=hnorm,
-            debug=False, rng=rng)
+            hessian=hessian_np, gnorm=gnorm,
+            debug=False, rng=rng, atoms=atoms, potentials=potentials)
 
         # Make a method history
         history.append(type(optimizer).__name__)
@@ -334,12 +351,6 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
         for name in potentials:
             total_energy += potentials[name].all_energy(pos, vects, volume).item()
 
-        # Update Lipschitz constant if needed
-        if optimizer.requires_lipschitz:
-            optimizer.lipschitz_constant_estimation(
-                 iteration['Energy'], np.concatenate([iteration['Positions'], iteration['Cell']]),
-                 total_energy, np.concatenate([atoms.get_positions(), atoms.get_cell()]))
-
         ''' 4 --- Re-calculate derivatives --- 4 '''
         # Gradient for current point on PES
         grad = {
@@ -363,7 +374,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
                     potentials[name].grad, scaled_pos, vects, 
                     strains_vec, volume)
             hessian = torch.add(hessian, hess_res)
-            secdrv = {'Hessian': hessian}
+            secdrv = {'Hessian': hessian, 'L': optimizer.cparams['L']}
             if type(optimizer).__name__ == 'CubicMin':
                 secdrv = {**secdrv, 'Cubic': optimizer.reg_value}
     

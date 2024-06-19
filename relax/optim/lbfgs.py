@@ -13,7 +13,7 @@ class LBFGS(Optimizer):
 		self.reg_value = None
 		self.requires_hessian = False
 		self.optargs = { 
-			'lr': 1, 
+			'lr': 1e-3, 
 			'max_iter': max_iter, 
 			'max_eval': max_eval, 
 			'tolerance_grad': gtol, 

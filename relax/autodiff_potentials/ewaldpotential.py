@@ -47,7 +47,6 @@ class EwaldPotential:
       		'positions': torch.matmul(scaled_grad[0], torch.inverse(vects)),
             'strains': torch.div(scaled_grad[1], volume.item())
         }
-
 		return self.grad
 
 	def get_hessian(self, grad: Dict[Tensor, Tensor], scaled_pos: Tensor, 

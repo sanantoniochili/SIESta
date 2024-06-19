@@ -15,7 +15,8 @@ pprint = PrettyPrint()
 
 class CubicMin(Optimizer):
     
-	def __init__(self, lnsearch, L=1, c=1, inner_tol=1e-3, 
+	######### CHANGED GTOL
+	def __init__(self, lnsearch, L=None, c=1, inner_tol=1e-3, 
               ftol=1e-5, gtol=1e-3, tol=1e-3, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
@@ -25,7 +26,7 @@ class CubicMin(Optimizer):
 		self.last_point = None
 		self.history = []
 		self.cparams = {
-			'kappa': math.sqrt(900/(self.tol*L)),
+			'kappa': None,
 			'L': L,
 			'c': c,
 			'tol': tol,
@@ -58,25 +59,53 @@ class CubicMin(Optimizer):
 	
 	def completion_check(self, gnorm: float):
 		if super().completion_check(gnorm) & (self.reg_value is not None):
-			if self.reg_value > - self.cparams['tol']**(3/2)/(
-				self.cparams['c']*math.sqrt(self.init_L)):
-				if self.debug:
-					pprint.print_result({'final': self.reg_value}, 
-						tol=- self.cparams['tol']**(3/2)/(self.cparams['c']*math.sqrt(self.init_L)),
-						iterno=self.iterno)
-					pprint.print_emphasis('cubic min end')
-				return True
+		# if self.reg_value is None:
+		# 	return False
+		# if self.reg_value > - self.cparams['tol']**(3/2)/(
+		# 	self.cparams['c']*math.sqrt(self.cparams['L'])):
+		# 	if self.debug:
+		# 		pprint.print_result({'final': self.reg_value}, 
+		# 			tol=- self.cparams['tol']**(3/2)/(self.cparams['c']*math.sqrt(self.cparams['L'])),
+		# 			iterno=self.iterno)
+		# 		pprint.print_emphasis('cubic min end')
+			return True
 		return False
  
 
-	def step(self, grad: ArrayLike, gnorm: float, hessian: ArrayLike, hnorm: float, 
+	def step(self, grad: ArrayLike, hessian: ArrayLike, 
 		  params: ArrayLike, line_search_fn: Callable, **kwargs):
 
 		grad_vec = np.reshape(grad, newshape=(grad.shape[0]*grad.shape[1],))
 		res = None
+		gnorm = np.linalg.norm(grad)
+		hnorm = np.linalg.norm(hessian)
+		# gnorm = 1 # assuming gradient is normalised
+		# hnorm = 1 # assuming Hessian is normalised
+		
+		################### TEST
+		# from sklearn.preprocessing import normalize
+		# hessian = normalize(hessian)
+		# hnorm = np.linalg.norm(hessian)
+		# grad_vec = normalize(grad_vec[np.newaxis, :])[0]
+		# gnorm = np.linalg.norm(grad_vec)
+		# self.cparams['L'] = gnorm
+		##################
+
+		# Update Lipschitz constant if needed
+		if len(self.history)>0:
+			self.lipschitz_constant_estimation(
+				self.history[-1]['hessian'], self.history[-1]['params'],
+				hessian, params)
+		else:
+			self.cparams['L'] = hnorm
+
+		self.cparams['kappa'] = math.sqrt(900/(self.tol*self.cparams['L']))
+		self.cparams['B'] = hnorm + \
+			math.sqrt(self.cparams['L']*gnorm)+1/(self.cparams['kappa'])
 
 		# Keep history 
 		self.history.append({
+			'params': params,
 			'grad': grad_vec,
 			'gnorm': gnorm,
 			'hessian': hessian,
@@ -88,10 +117,12 @@ class CubicMin(Optimizer):
 			grad=grad_vec, gnorm=gnorm, 
 			hessian=hessian, hnorm=hnorm, 
 			L= self.cparams['L'], 
+			L2 = hnorm,
 			B=self.cparams['B'],
 			kappa=self.cparams['kappa'], 
 			tol=self.cparams['inner_tol'], 
-			debug=self.debug, check=True, rng=kwargs['rng'], 
+			debug=self.debug, 
+			check=True, rng=kwargs['rng'], 
 			**self.optargs)
 
 		# Calculate cubic regularization function for returned vectors
@@ -135,8 +166,8 @@ class CubicMin(Optimizer):
 		return params
 	
 
-	def lipschitz_constant_estimation(self, energy_x: float, params_x: ArrayLike, 
-								   energy_y: float, params_y: ArrayLike):
+	def lipschitz_constant_estimation(self, hessian_x: float, params_x: ArrayLike, 
+								   hessian_y: float, params_y: ArrayLike):
 
-		self.cparams['L'] = abs(energy_x-energy_y)/np.linalg.norm(params_x-params_y)
+		self.cparams['L'] = np.linalg.norm(hessian_x-hessian_y)/np.linalg.norm(params_x-params_y)
 		pass
