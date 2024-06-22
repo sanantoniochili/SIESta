@@ -3,7 +3,7 @@ from ase.io import read
 from ase.visualize import view
 
 
-dir = 'output/output_random_1_CubicMin_bfgs/structs/rutile_rattled/'
+dir = 'output/output_rutile_1_CubicMin_gsb10/structs/rutile_rattled/'
 def myprint(I, dir):
     for i in range(1,I):
         with open(dir+'rutile_rattled_'+str(i)+'.pkl', 'rb') as f:
@@ -16,13 +16,13 @@ def myprint(I, dir):
     view(atoms)
 
 def finalprint():
-    with open('output/output_random_1_CubicMin_bfgs/rutile_rattled/rutile_rattled_bfgs_final.pkl', 'rb') as f:
+    with open('output/output_rutile_1_CubicMin/rutile_rattled/rutile_rattled_bfgs_final.pkl', 'rb') as f:
         output = pickle.load(f)
         print(output)
-    atoms = read('output/output_random_1_CubicMin_bfgs/rutile_rattled/rutile_rattled_bfgs_final.cif')
+    atoms = read('output/output_rutile_1_CubicMin/rutile_rattled/rutile_rattled_bfgs_final.cif')
     view(atoms)
 
 if __name__=='__main__':
     iters = int(input('Iterno: '))
     myprint(iters, dir)
-    finalprint()
+    # finalprint()

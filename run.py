@@ -170,7 +170,7 @@ if __name__ == "__main__":
 	# 	optimizer=optimizer, 
 	# 	line_search_fn='steady_step',
 	# 	usr_flag=args.user, 
-	# 	out=args.out if args.out else 1, 
+	# 	out=1, 
 	# 	debug=args.debug if args.debug else False,
 	# 	iterno=70000
 	# )
