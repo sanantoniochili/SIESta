@@ -17,7 +17,7 @@ class CubicMin(Optimizer):
     
 	######### CHANGED GTOL
 	def __init__(self, lnsearch, L=None, c=1, inner_tol=1e-3, 
-              ftol=1e-5, gtol=1e-3, tol=1e-3, debug=False):
+              ftol=1e-5, gtol=1e-3, tol=None, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
 		self.reg_value = None
@@ -29,7 +29,7 @@ class CubicMin(Optimizer):
 			'kappa': None,
 			'L': L,
 			'c': c,
-			'tol': tol,
+			'tol': None,
 			'inner_tol': inner_tol,
 			'B': None
 		}
@@ -37,7 +37,7 @@ class CubicMin(Optimizer):
 					'lr': 1e-3, 
 					'weight_decay': 0,
 					'momentum': 0,
-					'nesterov': False, 
+					'nesterov': True, 
 					'maximize': False,
 					'foreach': None,
 					'dampening': 0,
@@ -46,7 +46,7 @@ class CubicMin(Optimizer):
 					# 'alpha': 0.99,
 					'centered': False}
   
-		self.debug = True
+		self.debug = False
 		if debug:
 			pprint.print_emphasis('Running cubic min')
 			pprint.print_start({
@@ -73,33 +73,22 @@ class CubicMin(Optimizer):
 	def step(self, grad: ArrayLike, hessian: ArrayLike, 
 		  params: ArrayLike, line_search_fn: Callable, **kwargs):
 
-		grad_vec = np.reshape(grad, newshape=(grad.shape[0]*grad.shape[1],))
+		if len(grad.shape)==2:
+			grad_vec = np.reshape(grad, newshape=(grad.shape[0]*grad.shape[1],))
+		else:
+			grad_vec = grad.copy()
 		res = None
 		gnorm = np.linalg.norm(grad)
 		hnorm = np.linalg.norm(hessian)
-		# gnorm = 1 # assuming gradient is normalised
-		# hnorm = 1 # assuming Hessian is normalised
-		
-		################### TEST
-		# from sklearn.preprocessing import normalize
-		# hessian = normalize(hessian)
-		# hnorm = np.linalg.norm(hessian)
-		# grad_vec = normalize(grad_vec[np.newaxis, :])[0]
-		# gnorm = np.linalg.norm(grad_vec)
-		# self.cparams['L'] = gnorm
-		##################
+		self.cparams['L'] = hnorm
+		L2 = hnorm
 
-		# Update Lipschitz constant if needed
-		if len(self.history)>0:
-			self.lipschitz_constant_estimation(
-				self.history[-1]['hessian'], self.history[-1]['params'],
-				hessian, params)
-		else:
-			self.cparams['L'] = hnorm
-
-		self.cparams['kappa'] = math.sqrt(900/(self.tol*self.cparams['L']))
-		self.cparams['B'] = hnorm + \
-			math.sqrt(self.cparams['L']*gnorm)+1/(self.cparams['kappa'])
+		if not self.cparams['kappa']:
+			self.cparams['kappa'] = math.sqrt(900/(self.cparams['L']))
+		if not self.cparams['B']:
+			self.cparams['B'] = L2+math.sqrt(self.cparams['L']*gnorm) + 1/self.cparams['kappa']
+		if not self.cparams['tol']:
+			self.cparams['tol'] = 1/(10000*max(self.cparams['L'],gnorm,3*self.cparams['kappa']/10,self.cparams['B'],1))
 
 		# Keep history 
 		self.history.append({
@@ -111,7 +100,7 @@ class CubicMin(Optimizer):
 		})
 
 		# Run fast cubic minimization
-		res, _ = cubic_minimization(
+		(lad_current, eigvector, eigvector_min), _ = cubic_minimization(
 			grad=grad_vec, gnorm=gnorm, 
 			hessian=hessian, hnorm=hnorm, 
 			L= self.cparams['L'], 
@@ -125,17 +114,18 @@ class CubicMin(Optimizer):
 
 		# Calculate cubic regularization function for returned vectors
 		reg_value = cubic_regularization(
-			grad_vec, hessian, res[1], self.cparams['L'])	
+			grad_vec, hessian, eigvector, self.cparams['L'])	
 		# Initialize displacement
-		displacement = np.reshape(res[1], grad.shape)
+		displacement = np.reshape(eigvector, grad.shape)
 		# Check if there is a lowest eigenvector approximation
-		if res[2] is not None:
-			reg_value_min = res[0]/(2*self.cparams['L'])*cubic_regularization(
-				grad_vec, hessian, res[2], self.cparams['L'])
+		if eigvector_min is not None:
+			vector = lad_current*eigvector_min/(2*self.cparams['L'])
+			reg_value_min = cubic_regularization(
+				grad_vec, hessian, vector, self.cparams['L'])
 			# Keep the vector that gives smaller regular/tion value
 			if reg_value_min<reg_value:
 				reg_value = reg_value_min
-				displacement = np.reshape(res[2], grad.shape)
+				displacement = np.reshape(eigvector_min, grad.shape)
     
 		# Calculate stepsize
 		lnsearch = getattr(self.lnscheduler, line_search_fn)

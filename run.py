@@ -154,32 +154,3 @@ if __name__ == "__main__":
 		iterno=iterno
 	)
 	view(atoms)
-	
-	# from relax.optim.autodiff import repeat as arepeat
-	# lnsearch = LnSearch(
-	# 	max_step= 1,
-	# 	min_step= 1e-5,
-	# 	exponent=0.999,
-	# )
-	# optimizer = CubicMin(lnsearch)
-	# iteration = arepeat(
-	# 	atoms=atoms, 
-	# 	outdir=outdir,
-	# 	outfile=structure+'_switch',
-	# 	charge_dict=charge_dict,
-	# 	optimizer=optimizer, 
-	# 	line_search_fn='steady_step',
-	# 	usr_flag=args.user, 
-	# 	out=args.out if args.out else 1, 
-	# 	debug=args.debug if args.debug else False,
-	# 	iterno=70000
-	# )
-	# view(atoms)
-
-	# from relax.optim.lbfgs import LBFGS
-	# optimizer = BFGS(charge_dict=charge_dict,
-	# 			atoms=atoms,
-	# 			max_iter=iterno,
-	# 			outfile=outdir+structure+'/'+structure+'_bfgs')
-	# optimizer.run()
-	# view(atoms)
