@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pickle
+import time
 
 from ase.io import read as aread
 from ase.cell import Cell
@@ -118,6 +119,8 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 	(int, dict[str, _])
 	
 	"""
+	start_time = time.time()
+
 	strains = np.ones((3,3))
 	potentials, vects, _, initial_energy = init(charge_dict, atoms, outdir)
 	pos = atoms.get_positions()
@@ -159,6 +162,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
   
 	# Keep info of this iteration
 	iteration = {
+	'Time': time.time()-start_time,
 	'Gradient':grad, 'Positions':atoms.positions.copy(), 
 	'Strains':strains, 'Cell':np.array(atoms.get_cell()), 'Iter':optimizer.iterno, 
 	'Step': 0, 'Gnorm':gnorm, 'Energy':initial_energy}
@@ -260,6 +264,7 @@ def repeat(atoms, outdir, outfile, charge_dict, line_search_fn,
 					atoms, grad, N, params[N:], 0.00001, potentials)
 			
 		iteration = {
+		'Time': time.time()-start_time,
 		'Gradient':grad, 'Positions':atoms.positions.copy(), 
 		'Strains':strains, 'Cell':np.array(atoms.get_cell()), 
 		'Iter':optimizer.iterno, 'Method': history[-1], 

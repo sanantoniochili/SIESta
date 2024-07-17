@@ -2,7 +2,7 @@ import os, pickle
 from ase.io import read
 from ase.visualize import view
 
-dir = 'output/output_random_1_CubicMin/structs/structure_1_O9Sr3Ti3/'
+dir = 'output/output_random_convexopt_CubicMin_fullstep/structs/structure_1_O9Sr3Ti3/'
 def myprint(I, dir):
     for i in range(1,I):
         with open(dir+'structure_1_O9Sr3Ti3_'+str(i)+'.pkl', 'rb') as f:

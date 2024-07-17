@@ -17,7 +17,7 @@ class CubicMin(Optimizer):
     
 	######### CHANGED GTOL
 	def __init__(self, lnsearch, L=None, c=1, inner_tol=1e-3, 
-              ftol=1e-5, gtol=1e-3, tol=1e-3, debug=False):
+              ftol=1e-5, gtol=1e-3, tol=None, debug=False):
 		super().__init__(lnsearch, ftol, gtol, tol)
 	
 		self.reg_value = None
@@ -29,7 +29,7 @@ class CubicMin(Optimizer):
 			'kappa': None,
 			'L': L,
 			'c': c,
-			'tol': tol,
+			'tol': None,
 			'inner_tol': inner_tol,
 			'B': None
 		}
@@ -37,7 +37,7 @@ class CubicMin(Optimizer):
 					'lr': 1e-3, 
 					'weight_decay': 0,
 					'momentum': 0,
-					'nesterov': False, 
+					'nesterov': True, 
 					'maximize': False,
 					'foreach': None,
 					'dampening': 0,
@@ -46,7 +46,7 @@ class CubicMin(Optimizer):
 					# 'alpha': 0.99,
 					'centered': False}
   
-		self.debug = True
+		self.debug = False
 		if debug:
 			pprint.print_emphasis('Running cubic min')
 			pprint.print_start({
@@ -80,29 +80,15 @@ class CubicMin(Optimizer):
 		res = None
 		gnorm = np.linalg.norm(grad)
 		hnorm = np.linalg.norm(hessian)
-		# gnorm = 1 # assuming gradient is normalised
-		# hnorm = 1 # assuming Hessian is normalised
-		
-		################### TEST
-		# from sklearn.preprocessing import normalize
-		# hessian = normalize(hessian)
-		# hnorm = np.linalg.norm(hessian)
-		# grad_vec = normalize(grad_vec[np.newaxis, :])[0]
-		# gnorm = np.linalg.norm(grad_vec)
-		# self.cparams['L'] = gnorm
-		##################
-
-		# # Update Lipschitz constant if needed
-		# if len(self.history)>0:
-		# 	self.lipschitz_constant_estimation(
-		# 		self.history[-1]['hessian'], self.history[-1]['params'],
-		# 		hessian, params)
-		# else:
 		self.cparams['L'] = hnorm
+		L2 = hnorm
 
-		self.cparams['kappa'] = math.sqrt(900/(self.tol*self.cparams['L']))
-		self.cparams['B'] = hnorm + \
-			math.sqrt(self.cparams['L']*gnorm)+1/(self.cparams['kappa'])
+		if not self.cparams['kappa']:
+			self.cparams['kappa'] = math.sqrt(900/(self.cparams['L']))
+		if not self.cparams['B']:
+			self.cparams['B'] = L2+math.sqrt(self.cparams['L']*gnorm) + 1/self.cparams['kappa']
+		if not self.cparams['tol']:
+			self.cparams['tol'] = 1/(10000*max(self.cparams['L'],gnorm,3*self.cparams['kappa']/10,self.cparams['B'],1))
 
 		# Keep history 
 		self.history.append({
